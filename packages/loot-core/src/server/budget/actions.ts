@@ -116,12 +116,18 @@ export function setBudget({
 export function setGoal({ month, category, goal }): Promise<void> {
   let notes = db.firstSync(`SELECT * FROM notes WHERE id = ?`, [category]);
   let newNote = null;
-  let oldNote = notes.note;
+  let oldNote = '';
+  if (notes) {
+    oldNote = notes.note;
+  }
+
 
   let monthString = '#targetGoal ' + month;
   if (goal === null && oldNote.includes(monthString)) {
     let index = oldNote.indexOf(monthString);
     newNote = oldNote.substring(0, index);
+  } else if (goal=== null && !oldNote.includes(monthString)) {
+    return; //don't add a tag in not needed
   } else if (!oldNote.includes(monthString)) {
     newNote =
       oldNote + '\n#targetGoal ' + month + ' ' + (goal / 100).toFixed(2);
