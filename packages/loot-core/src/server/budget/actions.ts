@@ -113,36 +113,6 @@ export function setBudget({
   });
 }
 
-export function setGoal({ month, category, goal }): Promise<void> {
-  let notes = db.firstSync(`SELECT * FROM notes WHERE id = ?`, [category]);
-  let newNote = null;
-  let oldNote = '';
-  if (notes) {
-    oldNote = notes.note;
-  }
-
-
-  let monthString = '#targetGoal ' + month;
-  if (goal === null && oldNote.includes(monthString)) {
-    let index = oldNote.indexOf(monthString);
-    newNote = oldNote.substring(0, index);
-  } else if (goal=== null && !oldNote.includes(monthString)) {
-    return; //don't add a tag in not needed
-  } else if (!oldNote.includes(monthString)) {
-    newNote =
-      oldNote + '\n#targetGoal ' + month + ' ' + (goal / 100).toFixed(2);
-  } else {
-    newNote = '#targetGoal ' + month + ' ' + (goal / 100).toFixed(2);
-    let index = oldNote.indexOf(monthString);
-    let newLine = oldNote.indexOf('\n', index);
-    let oldNotePre = oldNote.substring(0, index);
-    let oldNotePost = oldNote.slice(newLine);
-    newNote = oldNotePre + newNote + oldNotePost;
-  }
-
-  return db.update('notes', { id: category, note: newNote });
-}
-
 export function setBuffer(month: string, amount: unknown): Promise<void> {
   let existing = db.firstSync(
     `SELECT id FROM zero_budget_months WHERE id = ?`,

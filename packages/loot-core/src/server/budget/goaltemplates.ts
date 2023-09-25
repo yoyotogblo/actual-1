@@ -6,7 +6,7 @@ import * as db from '../db';
 import { getRuleForSchedule, getNextDate } from '../schedules/app';
 import { batchMessages } from '../sync';
 
-import { setBudget, getSheetValue, isReflectBudget, setGoal } from './actions';
+import { setBudget, getSheetValue, isReflectBudget } from './actions';
 import { parse } from './goal-template.pegjs';
 
 export async function applyTemplate({ month }) {
@@ -87,6 +87,34 @@ async function resetCategoryTargets({ month }) {
       });
     });
   });
+}
+
+function setGoal({ month, category, goal }) {
+  let notes = db.firstSync(`SELECT * FROM notes WHERE id = ?`, [category]);
+  let newNote = null;
+  let oldNote = '';
+  if (notes) {
+    oldNote = notes.note;
+  }
+  let targetGoal = integerToAmount(goal);
+  let monthString = '#targetGoal ' + month;
+  if (goal === null && oldNote.includes(monthString)) {
+    let index = oldNote.indexOf(monthString);
+    newNote = oldNote.substring(0, index);
+  } else if (goal === null && !oldNote.includes(monthString)) {
+    return; //don't add a tag in not needed
+  } else if (!oldNote.includes(monthString)) {
+    newNote = oldNote + '\n#targetGoal ' + month + ' ' + targetGoal;
+  } else {
+    newNote = '#targetGoal ' + month + ' ' + targetGoal;
+    let index = oldNote.indexOf(monthString);
+    let newLine = oldNote.indexOf('\n', index);
+    let oldNotePre = oldNote.substring(0, index);
+    let oldNotePost = oldNote.slice(newLine);
+    newNote = oldNotePre + newNote + oldNotePost;
+  }
+
+  return db.update('notes', { id: category, note: newNote });
 }
 
 async function processTemplate(
