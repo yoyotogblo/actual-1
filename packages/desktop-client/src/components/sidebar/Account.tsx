@@ -103,7 +103,7 @@ function Account({
               // ignores it if it's active
               fontWeight: (style && style.fontWeight) || 'normal',
               '& .dot': {
-                backgroundColor: theme.sidebarItemAccentSelected,
+                backgroundColor: theme.sidebarItemBackgroundSelected,
                 transform: 'translateX(-4.5px)',
               },
             }}

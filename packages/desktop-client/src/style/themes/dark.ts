@@ -38,13 +38,18 @@ export const tableRowBackgroundHighlightText = colorPalette.navy150;
 export const tableRowHeaderBackground = colorPalette.navy700;
 export const tableRowHeaderText = colorPalette.navy150;
 
-export const sidebarBackground = colorPalette.navy900;
+export const sidebarBackground = colorPalette.navy800;
+export const sidebarItemBackground = colorPalette.navy800;
 export const sidebarItemBackgroundPositive = colorPalette.green500;
 export const sidebarItemBackgroundFailed = colorPalette.red300;
-export const sidebarItemAccnetSelected = colorPalette.purple200;
+export const sidebarItemBackgroundSelected = colorPalette.navy800;
 export const sidebarItemBackgroundHover = colorPalette.navy700;
+export const sidebarItemAccent = colorPalette.navy800;
+export const sidebarItemAccentSelected = colorPalette.purple400;
+export const sidebarItemAccentHover = colorPalette.navy700;
 export const sidebarItemText = colorPalette.navy150;
-export const sidebarItemTextSelected = colorPalette.purple200;
+export const sidebarItemTextSelected = colorPalette.purple400;
+export const sidebarItemTextHover = colorPalette.navy150;
 
 export const menuBackground = colorPalette.navy600;
 export const menuItemBackground = colorPalette.navy600;
@@ -62,7 +67,6 @@ export const menuAutoCompleteText = colorPalette.navy900;
 export const menuAutoCompleteTextHeader = menuItemTextHeader;
 
 export const modalBackground = colorPalette.gray800;
-export const mobilePageBackground = colorPalette.navy800;
 export const modalBorder = colorPalette.navy600;
 export const mobileHeaderBackground = colorPalette.purple800;
 export const mobileHeaderText = colorPalette.navy150;
