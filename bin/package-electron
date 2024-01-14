@@ -34,13 +34,16 @@ if [ "$OSTYPE" == "msys" ]; then
     fi
 fi
 
-yarn rebuild-electron
+# TODO: check if env vars are set
+# TODO: check if embedded.provisionprofile exists
 
-yarn workspace loot-core build:node
+# yarn rebuild-electron
 
-yarn workspace @actual-app/web build
+# yarn workspace loot-core build:node
 
-yarn workspace desktop-electron update-client
+# yarn workspace @actual-app/web build
+
+# yarn workspace desktop-electron update-client
 
 (
     cd packages/desktop-electron;
@@ -50,7 +53,7 @@ yarn workspace desktop-electron update-client
         if [ -f ../../.secret-tokens ]; then
             source ../../.secret-tokens
         fi
-        yarn build --publish never --arm64 --x64
+        yarn build --publish never --x64
 
         echo "\nCreated release"
     else

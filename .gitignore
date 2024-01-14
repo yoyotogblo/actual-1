@@ -7,6 +7,7 @@ packages/desktop-electron/client-build
 packages/desktop-electron/.electron-symbols
 packages/desktop-electron/dist
 packages/desktop-electron/loot-core
+packages/desktop-electron/embedded.provisionprofile
 node_modules
 .DS_Store
 lerna-debug.log

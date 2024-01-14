@@ -1814,9 +1814,9 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@electron/rebuild@npm:3.4.1":
-  version: 3.4.1
-  resolution: "@electron/rebuild@npm:3.4.1"
+"@electron/rebuild@npm:3.5.0":
+  version: 3.5.0
+  resolution: "@electron/rebuild@npm:3.5.0"
   dependencies:
     "@malept/cross-spawn-promise": "npm:^2.0.0"
     chalk: "npm:^4.0.0"
@@ -1825,7 +1825,7 @@ __metadata:
     fs-extra: "npm:^10.0.0"
     got: "npm:^11.7.0"
     node-abi: "npm:^3.45.0"
-    node-api-version: "npm:^0.1.4"
+    node-api-version: "npm:^0.2.0"
     node-gyp: "npm:^9.0.0"
     ora: "npm:^5.1.0"
     read-binary-file-arch: "npm:^1.0.6"
@@ -1834,7 +1834,7 @@ __metadata:
     yargs: "npm:^17.0.1"
   bin:
     electron-rebuild: lib/cli.js
-  checksum: c6d9ade62f13b3c3642321ddcfed64a1ab839c25d19e2a7f444d0c4852bf6ee1fcb180d8c333516f9d656787e3d33ed2efc84f4d02d5196c32a0cc5f30e1f548
+  checksum: e17d05b6a1950ae8f9f91c2efdcf24665494109f82eb2a1f20be17424ea2eb1d4e86dd77f9b11176fb08725e89ea0c60c65729270fd199c8d0aa55203b907709
   languageName: node
   linkType: hard
 
@@ -5083,9 +5083,9 @@ __metadata:
   languageName: node
   linkType: hard
 
-"app-builder-lib@npm:24.10.0":
-  version: 24.10.0
-  resolution: "app-builder-lib@npm:24.10.0"
+"app-builder-lib@npm:24.11.0":
+  version: 24.11.0
+  resolution: "app-builder-lib@npm:24.11.0"
   dependencies:
     "@develar/schema-utils": "npm:~2.6.5"
     "@electron/notarize": "npm:2.1.0"
@@ -5114,7 +5114,7 @@ __metadata:
     semver: "npm:^7.3.8"
     tar: "npm:^6.1.12"
     temp-file: "npm:^3.4.0"
-  checksum: 8350e08488d13c239ae62d8b4e799d5017d186547538161f47ec6475a3b290152e644e01788f4e35ba0b5bebdf4ef5118450fb52e76bc1813eb81f3db8025976
+  checksum: ec1fecd9864efe84ef5c6da4e5a2d52564fe423c39a9b68b1b4b27a8f74915ed83607c45a8da779b23c0046c7bd8ede90d41ec6fd5ccfe251945397dde85282b
   languageName: node
   linkType: hard
 
@@ -7116,13 +7116,13 @@ __metadata:
   resolution: "desktop-electron@workspace:packages/desktop-electron"
   dependencies:
     "@electron/notarize": "npm:2.2.0"
-    "@electron/rebuild": "npm:3.4.1"
+    "@electron/rebuild": "npm:3.5.0"
     cross-env: "npm:^7.0.3"
-    electron: "npm:27.2.0"
-    electron-builder: "npm:24.10.0"
+    electron: "npm:27.2.2"
+    electron-builder: "npm:24.11.0"
     electron-is-dev: "npm:2.0.0"
     electron-log: "npm:4.4.8"
-    electron-updater: "npm:6.1.7"
+    electron-updater: "npm:6.1.8"
     loot-core: "npm:*"
     node-fetch: "npm:^2.6.9"
     promise-retry: "npm:^2.0.1"
@@ -7197,11 +7197,11 @@ __metadata:
   languageName: node
   linkType: hard
 
-"dmg-builder@npm:24.10.0":
-  version: 24.10.0
-  resolution: "dmg-builder@npm:24.10.0"
+"dmg-builder@npm:24.11.0":
+  version: 24.11.0
+  resolution: "dmg-builder@npm:24.11.0"
   dependencies:
-    app-builder-lib: "npm:24.10.0"
+    app-builder-lib: "npm:24.11.0"
     builder-util: "npm:24.9.4"
     builder-util-runtime: "npm:9.2.3"
     dmg-license: "npm:^1.0.11"
@@ -7211,7 +7211,7 @@ __metadata:
   dependenciesMeta:
     dmg-license:
       optional: true
-  checksum: 237d071ed74b38ab817d85685790b1daf3d415377c0842de850226dd1885441ab5107d9a7193e23660b1c17054b6fca85d4d9c28e7efd4944c5b879aa5e0727c
+  checksum: b6d14b78d369fcfa36a201d0cf424e7257a0db08d6d6011ccfaa7d1423ba791ee1b917330498dbec015acbb525a2753d7203b703a096b28b67bdf66d832a4b76
   languageName: node
   linkType: hard
 
@@ -7424,15 +7424,15 @@ __metadata:
   languageName: node
   linkType: hard
 
-"electron-builder@npm:24.10.0":
-  version: 24.10.0
-  resolution: "electron-builder@npm:24.10.0"
+"electron-builder@npm:24.11.0":
+  version: 24.11.0
+  resolution: "electron-builder@npm:24.11.0"
   dependencies:
-    app-builder-lib: "npm:24.10.0"
+    app-builder-lib: "npm:24.11.0"
     builder-util: "npm:24.9.4"
     builder-util-runtime: "npm:9.2.3"
     chalk: "npm:^4.1.2"
-    dmg-builder: "npm:24.10.0"
+    dmg-builder: "npm:24.11.0"
     fs-extra: "npm:^10.1.0"
     is-ci: "npm:^3.0.0"
     lazy-val: "npm:^1.0.5"
@@ -7442,7 +7442,7 @@ __metadata:
   bin:
     electron-builder: cli.js
     install-app-deps: install-app-deps.js
-  checksum: 0773bcafdcfa00f70d441f0a9cff1de8b6b87a8ad65285b6bcf4f2a9f6cc17640759b2b4bff408bf3bfbe15b00598de020a87f2cc7fe84b2338e7427dfd9a24f
+  checksum: 402bbcd74281aa7ab2d38bdb2411604e9688e592d0fea18f2dfeab8129ef19d8035591eb637745031a5d0fe7bf0d703f8f924e92ecba9ba8648d02b2700573d0
   languageName: node
   linkType: hard
 
@@ -7482,9 +7482,9 @@ __metadata:
   languageName: node
   linkType: hard
 
-"electron-updater@npm:6.1.7":
-  version: 6.1.7
-  resolution: "electron-updater@npm:6.1.7"
+"electron-updater@npm:6.1.8":
+  version: 6.1.8
+  resolution: "electron-updater@npm:6.1.8"
   dependencies:
     builder-util-runtime: "npm:9.2.3"
     fs-extra: "npm:^10.1.0"
@@ -7494,20 +7494,20 @@ __metadata:
     lodash.isequal: "npm:^4.5.0"
     semver: "npm:^7.3.8"
     tiny-typed-emitter: "npm:^2.1.0"
-  checksum: c6a5b566d70de550cd959a3af0bed98da868b997d7ef741ede488027a8c876af2e1bf981becfeac767c4dbf7af856ed4e53053e7fcd246dc2af5fc71fd5ef7cc
+  checksum: 55783c3e787b59d08156399b614814233089eaff7a298bb8488a9b848e4275e3ccedfa6731fc8633ab89a8dc94fafd282a7a23c6dbf7f20ae844aa2519e78a96
   languageName: node
   linkType: hard
 
-"electron@npm:27.2.0":
-  version: 27.2.0
-  resolution: "electron@npm:27.2.0"
+"electron@npm:27.2.2":
+  version: 27.2.2
+  resolution: "electron@npm:27.2.2"
   dependencies:
     "@electron/get": "npm:^2.0.0"
     "@types/node": "npm:^18.11.18"
     extract-zip: "npm:^2.0.1"
   bin:
     electron: cli.js
-  checksum: 80f207756c4ff85ea8f54e4e6aa0d0fb223719873af550ce081c4846cbfcff612d3611ddef4f127e7a0d34547ad57d2701ad957b06f2d93a885905126973c576
+  checksum: 8f457945cf231b91556f6cd13ee1e657f634e955b36cc791768d14fb39b4760980c1b35b8f979ceefa58cfb6d5c4d72358b41d1eb2b5a5c752603f570e042f80
   languageName: node
   linkType: hard
 
@@ -12694,12 +12694,12 @@ __metadata:
   languageName: node
   linkType: hard
 
-"node-api-version@npm:^0.1.4":
-  version: 0.1.4
-  resolution: "node-api-version@npm:0.1.4"
+"node-api-version@npm:^0.2.0":
+  version: 0.2.0
+  resolution: "node-api-version@npm:0.2.0"
   dependencies:
     semver: "npm:^7.3.5"
-  checksum: e652a9502a6b62bda01d6134be30195f9d8b3ba75190a4190c76e7ed4f12a410cdc7ec301f878aff11dafc14bc7d9c4fc81f88c1e174c8fb970b7b33eb978b98
+  checksum: 26146d0d4a6a252009e1926e2f3668a7ab1710d6ee59d615b0099ccdc0c6588a48b5f8668349d4eb313be0d904a67b106b7cf2d2a1a31609ff671394baaf6ce0
   languageName: node
   linkType: hard
 
