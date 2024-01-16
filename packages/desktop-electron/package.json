@@ -40,14 +40,19 @@
       "icon": "icons/icon.icns",
       "hardenedRuntime": true,
       "gatekeeperAssess": false,
-      "preAutoEntitlements": false,
       "notarize": {
         "teamId": "79ANZ983YF"
+      },
+      "extendInfo": {
+        "ElectronTeamID": "79ANZ983YF"
       }
     },
     "mas": {
       "hardenedRuntime": true,
-      "type": "development"
+      "type": "distribution",
+      "extendInfo": {
+        "ElectronTeamID": "79ANZ983YF"
+      }
     },
     "linux": {
       "target": "AppImage",
