@@ -1,5 +1,4 @@
 import React from 'react';
-import { useSelector } from 'react-redux';
 
 import { parseISO, format as formatDate, parse as parseDate } from 'date-fns';
 
