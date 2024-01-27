@@ -15,6 +15,7 @@ import {
 import { type GlobalPrefs } from 'loot-core/src/types/prefs';
 
 import { useActions } from '../hooks/useActions';
+import { useLocalPref } from '../hooks/useLocalPref';
 import { installPolyfills } from '../polyfills';
 import { ResponsiveProvider } from '../ResponsiveProvider';
 import { styles, hasHiddenScrollbars, ThemeStyle } from '../style';
@@ -123,12 +124,8 @@ function ErrorFallback({ error }: FallbackProps) {
 }
 
 export function App() {
-  const budgetId = useSelector(
-    state => state.prefs.local && state.prefs.local.id,
-  );
-  const cloudFileId = useSelector(
-    state => state.prefs.local && state.prefs.local.cloudFileId,
-  );
+  const budgetId = useLocalPref('id');
+  const cloudFileId = useLocalPref('cloudFileId');
   const loadingText = useSelector(state => state.app.loadingText);
   const { loadBudget, closeBudget, loadGlobalPrefs, sync } = useActions();
   const [hiddenScrollbars, setHiddenScrollbars] = useState(

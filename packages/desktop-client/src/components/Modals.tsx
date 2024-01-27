@@ -6,7 +6,6 @@ import { useLocation } from 'react-router-dom';
 import { send } from 'loot-core/src/platform/client/fetch';
 
 import { useActions } from '../hooks/useActions';
-import { useCategories } from '../hooks/useCategories';
 import { useSyncServerStatus } from '../hooks/useSyncServerStatus';
 import { type CommonModalProps } from '../types/modals';
 
@@ -43,11 +42,6 @@ import { ScheduleLink } from './schedules/ScheduleLink';
 export function Modals() {
   const modalStack = useSelector(state => state.modals.modalStack);
   const isHidden = useSelector(state => state.modals.isHidden);
-  const accounts = useSelector(state => state.queries.accounts);
-  const { grouped: categoryGroups, list: categories } = useCategories();
-  const budgetId = useSelector(
-    state => state.prefs.local && state.prefs.local.id,
-  );
   const actions = useActions();
   const location = useLocation();
 
@@ -97,8 +91,6 @@ export function Modals() {
               account={options.account}
               balance={options.balance}
               canDelete={options.canDelete}
-              accounts={accounts.filter(acct => acct.closed === 0)}
-              categoryGroups={categoryGroups}
               actions={actions}
             />
           );
@@ -109,7 +101,6 @@ export function Modals() {
               modalProps={modalProps}
               externalAccounts={options.accounts}
               requisitionId={options.requisitionId}
-              localAccounts={accounts.filter(acct => acct.closed === 0)}
               actions={actions}
               syncSource={options.syncSource}
             />
@@ -119,15 +110,8 @@ export function Modals() {
           return (
             <ConfirmCategoryDelete
               modalProps={modalProps}
-              category={
-                'category' in options &&
-                categories.find(c => c.id === options.category)
-              }
-              group={
-                'group' in options &&
-                categoryGroups.find(g => g.id === options.group)
-              }
-              categoryGroups={categoryGroups}
+              category={options.category}
+              group={options.group}
               onDelete={options.onDelete}
             />
           );
@@ -145,7 +129,7 @@ export function Modals() {
           return (
             <LoadBackup
               watchUpdates
-              budgetId={budgetId}
+              budgetId={options.budgetId}
               modalProps={modalProps}
               actions={actions}
               backupDisabled={false}

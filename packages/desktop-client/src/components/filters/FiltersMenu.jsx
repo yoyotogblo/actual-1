@@ -1,5 +1,4 @@
 import React, { useState, useRef, useEffect, useReducer } from 'react';
-import { useSelector } from 'react-redux';
 
 import { FocusScope } from '@react-aria/focus';
 import {
@@ -23,6 +22,7 @@ import {
 } from 'loot-core/src/shared/rules';
 import { titleFirst, integerToCurrency } from 'loot-core/src/shared/util';
 
+import { useDateFormat } from '../../hooks/useDateFormat';
 import { SvgDelete } from '../../icons/v0';
 import { theme } from '../../style';
 import { Button } from '../common/Button';
@@ -341,11 +341,7 @@ function ConfigureField({
 export function FilterButton({ onApply, compact, hover }) {
   const filters = useFilters();
 
-  const { dateFormat } = useSelector(state => {
-    return {
-      dateFormat: state.prefs.local.dateFormat || 'MM/dd/yyyy',
-    };
-  });
+  const dateFormat = useDateFormat() || 'MM/dd/yyyy';
 
   const [state, dispatch] = useReducer(
     (state, action) => {

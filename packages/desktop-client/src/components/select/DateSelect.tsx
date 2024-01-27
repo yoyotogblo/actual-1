@@ -10,7 +10,6 @@ import React, {
   type MutableRefObject,
   type KeyboardEvent,
 } from 'react';
-import { useSelector } from 'react-redux';
 
 import { parse, parseISO, format, subDays, addDays, isValid } from 'date-fns';
 import Pikaday from 'pikaday';
@@ -26,6 +25,7 @@ import {
 } from 'loot-core/src/shared/months';
 import { stringToInteger } from 'loot-core/src/shared/util';
 
+import { useLocalPref } from '../../hooks/useLocalPref';
 import { type CSSProperties, theme } from '../../style';
 import { Input, type InputProps } from '../common/Input';
 import { View, type ViewProps } from '../common/View';
@@ -231,11 +231,7 @@ export function DateSelect({
   const [selectedValue, setSelectedValue] = useState(value);
   const userSelectedValue = useRef(selectedValue);
 
-  const firstDayOfWeekIdx = useSelector(state =>
-    state.prefs.local?.firstDayOfWeekIdx
-      ? state.prefs.local.firstDayOfWeekIdx
-      : '0',
-  );
+  const firstDayOfWeekIdx = useLocalPref('firstDayOfWeekIdx') || '0';
 
   useEffect(() => {
     userSelectedValue.current = value;

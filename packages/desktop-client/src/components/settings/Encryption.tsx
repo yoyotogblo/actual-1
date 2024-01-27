@@ -1,8 +1,8 @@
 // @ts-strict-ignore
 import React from 'react';
-import { useSelector } from 'react-redux';
 
 import { useActions } from '../../hooks/useActions';
+import { useLocalPref } from '../../hooks/useLocalPref';
 import { theme } from '../../style';
 import { Button } from '../common/Button';
 import { ExternalLink } from '../common/ExternalLink';
@@ -14,7 +14,7 @@ import { Setting } from './UI';
 export function EncryptionSettings() {
   const { pushModal } = useActions();
   const serverURL = useServerURL();
-  const encryptKeyId = useSelector(state => state.prefs.local.encryptKeyId);
+  const encryptKeyId = useLocalPref('encryptKeyId');
 
   const missingCryptoAPI = !(window.crypto && crypto.subtle);
 

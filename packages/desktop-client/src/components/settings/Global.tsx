@@ -1,8 +1,8 @@
 // @ts-strict-ignore
 import React, { useState, useEffect, useRef } from 'react';
-import { useSelector } from 'react-redux';
 
 import { useActions } from '../../hooks/useActions';
+import { useGlobalPref } from '../../hooks/useGlobalPref';
 import { theme } from '../../style';
 import { Information } from '../alerts';
 import { Button } from '../common/Button';
@@ -12,7 +12,7 @@ import { View } from '../common/View';
 import { Setting } from './UI';
 
 export function GlobalSettings() {
-  const documentDir = useSelector(state => state.prefs.global.documentDir);
+  const documentDir = useGlobalPref('documentDir');
   const { saveGlobalPrefs } = useActions();
 
   const [documentDirChanged, setDirChanged] = useState(false);

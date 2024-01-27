@@ -1,9 +1,7 @@
 // @ts-strict-ignore
 import React, { useEffect, useState } from 'react';
-import { useSelector } from 'react-redux';
 
 import { useSpreadsheet } from 'loot-core/src/client/SpreadsheetProvider';
-import { type PrefsState } from 'loot-core/src/client/state-types/prefs';
 import { send, listen } from 'loot-core/src/platform/client/fetch';
 import * as monthUtils from 'loot-core/src/shared/months';
 import {
@@ -13,6 +11,7 @@ import {
 
 import { type BoundActions, useActions } from '../../hooks/useActions';
 import { useCategories } from '../../hooks/useCategories';
+import { useLocalPref } from '../../hooks/useLocalPref';
 import { useSetThemeColor } from '../../hooks/useSetThemeColor';
 import { AnimatedLoading } from '../../icons/AnimatedLoading';
 import { theme } from '../../style';
@@ -28,7 +27,6 @@ const BALANCE_MENU_OPEN_ACTION = 'balance-menu';
 type BudgetInnerProps = {
   categories: CategoryEntity[];
   categoryGroups: CategoryGroupEntity[];
-  prefs: PrefsState['local'];
   loadPrefs: BoundActions['loadPrefs'];
   savePrefs: BoundActions['savePrefs'];
   budgetType: 'rollover' | 'report';
@@ -52,7 +50,6 @@ function BudgetInner(props: BudgetInnerProps) {
   const {
     categoryGroups,
     categories,
-    prefs,
     loadPrefs,
     savePrefs,
     budgetType,
@@ -78,6 +75,9 @@ function BudgetInner(props: BudgetInnerProps) {
   const [editMode, setEditMode] = useState(false);
   const [editingBudgetCategoryId, setEditingBudgetCategoryId] = useState(null);
   const [openBalanceActionMenuId, setOpenBalanceActionMenuId] = useState(null);
+
+  const numberFormat = useLocalPref('numberFormat') || 'comma-dot';
+  const hideFraction = useLocalPref('hideFraction') || false;
 
   useEffect(() => {
     async function init() {
@@ -383,9 +383,6 @@ function BudgetInner(props: BudgetInnerProps) {
     return { action, editingId: !currentlyEditing ? id : null };
   };
 
-  const numberFormat = prefs?.numberFormat || 'comma-dot';
-  const hideFraction = prefs?.hideFraction || false;
-
   if (!categoryGroups || !initialized) {
     return (
       <View
@@ -450,10 +447,7 @@ function BudgetInner(props: BudgetInnerProps) {
 
 export function Budget() {
   const { list: categories, grouped: categoryGroups } = useCategories();
-  const budgetType = useSelector(
-    state => state.prefs.local?.budgetType || 'rollover',
-  );
-  const prefs = useSelector(state => state.prefs.local);
+  const budgetType = useLocalPref('budgetType') || 'rollover';
 
   const actions = useActions();
   const spreadsheet = useSpreadsheet();
@@ -463,7 +457,6 @@ export function Budget() {
       categoryGroups={categoryGroups}
       categories={categories}
       budgetType={budgetType}
-      prefs={prefs}
       {...actions}
       spreadsheet={spreadsheet}
     />

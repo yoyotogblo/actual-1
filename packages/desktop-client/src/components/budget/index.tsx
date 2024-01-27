@@ -7,7 +7,6 @@ import React, {
   useEffect,
   useRef,
 } from 'react';
-import { useSelector } from 'react-redux';
 import {
   type NavigateFunction,
   type PathMatch,
@@ -34,6 +33,8 @@ import { type GlobalPrefs, type LocalPrefs } from 'loot-core/src/types/prefs';
 import { type BoundActions, useActions } from '../../hooks/useActions';
 import { useCategories } from '../../hooks/useCategories';
 import { useFeatureFlag } from '../../hooks/useFeatureFlag';
+import { useGlobalPref } from '../../hooks/useGlobalPref';
+import { useLocalPref } from '../../hooks/useLocalPref';
 import { useNavigate } from '../../hooks/useNavigate';
 import { styles } from '../../style';
 import { View } from '../common/View';
@@ -534,19 +535,11 @@ const RolloverBudgetSummary = memo<{ month: string }>(props => {
 });
 
 export function Budget() {
-  const startMonth = useSelector(
-    state => state.prefs.local['budget.startMonth'],
-  );
-  const collapsedPrefs = useSelector(
-    state => state.prefs.local['budget.collapsed'],
-  );
-  const summaryCollapsed = useSelector(
-    state => state.prefs.local['budget.summaryCollapsed'],
-  );
-  const budgetType = useSelector(
-    state => state.prefs.local.budgetType || 'rollover',
-  );
-  const maxMonths = useSelector(state => state.prefs.global.maxMonths);
+  const startMonth = useLocalPref('budget.startMonth');
+  const collapsedPrefs = useLocalPref('budget.collapsed');
+  const summaryCollapsed = useLocalPref('budget.summaryCollapsed');
+  const budgetType = useLocalPref('budgetType') || 'rollover';
+  const maxMonths = useGlobalPref('maxMonths');
   const { grouped: categoryGroups } = useCategories();
 
   const actions = useActions();

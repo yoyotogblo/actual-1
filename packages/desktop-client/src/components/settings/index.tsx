@@ -1,6 +1,5 @@
 // @ts-strict-ignore
 import React, { type ReactNode, useEffect } from 'react';
-import { useSelector } from 'react-redux';
 
 import { media } from 'glamor';
 
@@ -8,7 +7,9 @@ import * as Platform from 'loot-core/src/client/platform';
 import { listen } from 'loot-core/src/platform/client/fetch';
 
 import { useActions } from '../../hooks/useActions';
+import { useGlobalPref } from '../../hooks/useGlobalPref';
 import { useLatestVersion, useIsOutdated } from '../../hooks/useLatestVersion';
+import { useLocalPref } from '../../hooks/useLocalPref';
 import { useSetThemeColor } from '../../hooks/useSetThemeColor';
 import { useResponsive } from '../../ResponsiveProvider';
 import { theme } from '../../style';
@@ -89,8 +90,8 @@ function IDName({ children }: { children: ReactNode }) {
 }
 
 function AdvancedAbout() {
-  const budgetId = useSelector(state => state.prefs.local.id);
-  const groupId = useSelector(state => state.prefs.local.groupId);
+  const budgetId = useLocalPref('id');
+  const groupId = useLocalPref('groupId');
 
   return (
     <Setting>
@@ -118,10 +119,8 @@ function AdvancedAbout() {
 }
 
 export function Settings() {
-  const floatingSidebar = useSelector(
-    state => state.prefs.global.floatingSidebar,
-  );
-  const budgetName = useSelector(state => state.prefs.local.budgetName);
+  const floatingSidebar = useGlobalPref('floatingSidebar');
+  const budgetName = useLocalPref('budgetName');
 
   const { loadPrefs, closeBudget } = useActions();
 

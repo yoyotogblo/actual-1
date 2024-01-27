@@ -1,9 +1,10 @@
 // @ts-strict-ignore
 import { useEffect, useState } from 'react';
-import { useSelector } from 'react-redux';
 
 import { isNonProductionEnvironment } from 'loot-core/src/shared/environment';
 import type { Theme } from 'loot-core/src/types/prefs';
+
+import { useGlobalPref } from '../hooks/useGlobalPref';
 
 import * as darkTheme from './themes/dark';
 import * as developmentTheme from './themes/development';
@@ -23,7 +24,7 @@ export const themeOptions = Object.entries(themes).map(
 );
 
 export function useTheme() {
-  return useSelector(state => state.prefs.global?.theme) || 'light';
+  return useGlobalPref('theme') || 'light';
 }
 
 export function ThemeStyle() {

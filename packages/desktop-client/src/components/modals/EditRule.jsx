@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
-import { useDispatch, useSelector } from 'react-redux';
+import { useDispatch } from 'react-redux';
 
 import {
   initiallyLoadPayees,
@@ -26,6 +26,7 @@ import {
   amountToInteger,
 } from 'loot-core/src/shared/util';
 
+import { useDateFormat } from '../../hooks/useDateFormat';
 import { useSelected, SelectedProvider } from '../../hooks/useSelected';
 import { SvgAdd, SvgSubtract } from '../../icons/v0';
 import { SvgInformationOutline } from '../../icons/v1';
@@ -252,9 +253,7 @@ function formatAmount(amount) {
 }
 
 function ScheduleDescription({ id }) {
-  const dateFormat = useSelector(state => {
-    return state.prefs.local.dateFormat || 'MM/dd/yyyy';
-  });
+  const dateFormat = useDateFormat() || 'MM/dd/yyyy';
   const scheduleData = useSchedules({
     transform: useCallback(q => q.filter({ id }), []),
   });

@@ -1,7 +1,7 @@
 // @ts-strict-ignore
 import React from 'react';
-import { useSelector } from 'react-redux';
 
+import { useLocalPref } from '../../hooks/useLocalPref';
 import { type CommonModalProps } from '../../types/modals';
 import { Button } from '../common/Button';
 import { ExternalLink } from '../common/ExternalLink';
@@ -18,7 +18,7 @@ export function SwitchBudgetType({
   modalProps,
   onSwitch,
 }: SwitchBudgetTypeProps) {
-  const budgetType = useSelector(state => state.prefs.local.budgetType);
+  const budgetType = useLocalPref('budgetType');
   return (
     <Modal title="Switch budget type?" {...modalProps}>
       {() => (
