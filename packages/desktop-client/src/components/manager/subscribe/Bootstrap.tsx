@@ -7,8 +7,8 @@ import { loggedIn } from 'loot-core/src/client/actions/user';
 import { send } from 'loot-core/src/platform/client/fetch';
 
 import { theme } from '../../../style';
-import { Button } from '../../common/Button';
-import { ExternalLink } from '../../common/ExternalLink';
+import { Button } from '../../common/Button2';
+import { Link } from '../../common/Link';
 import { Paragraph } from '../../common/Paragraph';
 import { Text } from '../../common/Text';
 import { View } from '../../common/View';
@@ -64,9 +64,9 @@ export function Bootstrap() {
 
       <Paragraph isLast style={{ fontSize: 16, color: theme.pageTextDark }}>
         Consider opening{' '}
-        <ExternalLink to="https://actualbudget.org/docs/tour/">
+        <Link variant="external" to="https://actualbudget.org/docs/tour/">
           our tour
-        </ExternalLink>{' '}
+        </Link>{' '}
         in a new tab for some guidance on what to do when you’ve set your
         password.
       </Paragraph>
@@ -87,9 +87,9 @@ export function Bootstrap() {
       <ConfirmPasswordForm
         buttons={
           <Button
-            type="bare"
+            variant="bare"
             style={{ fontSize: 15, color: theme.pageTextLink, marginRight: 15 }}
-            onClick={onDemo}
+            onPress={onDemo}
           >
             Try Demo
           </Button>

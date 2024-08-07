@@ -2,10 +2,11 @@
 // We have to bundle in JS migrations manually to avoid having to `eval`
 // them which doesn't play well with CSP. There isn't great, and eventually
 // we can remove this migration.
-import { Database } from 'better-sqlite3';
+import { Database } from '@jlongster/sql.js';
 import { v4 as uuidv4 } from 'uuid';
 
 import m1632571489012 from '../../../migrations/1632571489012_remove_cache';
+import m1722717601000 from '../../../migrations/1722717601000_reports_move_selected_categories';
 import * as fs from '../../platform/server/fs';
 import * as sqlite from '../../platform/server/sqlite';
 
@@ -13,6 +14,7 @@ let MIGRATIONS_DIR = fs.migrationsPath;
 
 const javascriptMigrations = {
   1632571489012: m1632571489012,
+  1722717601000: m1722717601000,
 };
 
 export async function withMigrationsDir(

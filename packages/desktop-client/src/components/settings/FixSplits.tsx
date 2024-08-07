@@ -1,11 +1,10 @@
-// @ts-strict-ignore
 import React, { useState } from 'react';
 
 import { send } from 'loot-core/src/platform/client/fetch';
 import { type Handlers } from 'loot-core/src/types/handlers';
 
 import { theme } from '../../style';
-import { ButtonWithLoading } from '../common/Button';
+import { ButtonWithLoading } from '../common/Button2';
 import { Paragraph } from '../common/Paragraph';
 import { Text } from '../common/Text';
 import { View } from '../common/View';
@@ -54,7 +53,7 @@ function renderResults(results: Results) {
 
 export function FixSplits() {
   const [loading, setLoading] = useState(false);
-  const [results, setResults] = useState<Results>(null);
+  const [results, setResults] = useState<Results | null>(null);
 
   async function onFix() {
     setLoading(true);
@@ -75,7 +74,7 @@ export function FixSplits() {
             alignItems: 'center',
           }}
         >
-          <ButtonWithLoading loading={loading} onClick={onFix}>
+          <ButtonWithLoading isLoading={loading} onPress={onFix}>
             Repair split transactions
           </ButtonWithLoading>
           {results && renderResults(results)}

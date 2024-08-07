@@ -13,6 +13,8 @@ import {
   ResponsiveContainer,
 } from 'recharts';
 
+import { amountToCurrencyNoDecimal } from 'loot-core/shared/util';
+
 import { theme } from '../../../style';
 import { type CSSProperties } from '../../../style';
 import { AlignedText } from '../../common/AlignedText';
@@ -71,13 +73,19 @@ const CustomTooltip = ({ active, payload }: CustomTooltipProps) => {
 
 type BarLineGraphProps = {
   style?: CSSProperties;
-  graphData;
+  data;
   compact?: boolean;
+  showTooltip?: boolean;
 };
 
-export function BarLineGraph({ style, graphData, compact }: BarLineGraphProps) {
+export function BarLineGraph({
+  style,
+  data,
+  compact,
+  showTooltip = true,
+}: BarLineGraphProps) {
   const tickFormatter = tick => {
-    return `${Math.round(tick).toLocaleString()}`; // Formats the tick values as strings with commas
+    return `${amountToCurrencyNoDecimal(Math.round(tick))}`; // Formats the tick values as strings with commas
   };
 
   return (
@@ -88,21 +96,23 @@ export function BarLineGraph({ style, graphData, compact }: BarLineGraphProps) {
       }}
     >
       {(width, height) =>
-        graphData && (
+        data && (
           <ResponsiveContainer>
             <div>
               {!compact && <div style={{ marginTop: '15px' }} />}
               <ComposedChart
                 width={width}
                 height={height}
-                data={graphData.data}
+                data={data.data}
                 margin={{ top: 0, right: 0, left: 0, bottom: 0 }}
               >
-                <Tooltip
-                  content={<CustomTooltip />}
-                  formatter={numberFormatterTooltip}
-                  isAnimationActive={false}
-                />
+                {showTooltip && (
+                  <Tooltip
+                    content={<CustomTooltip />}
+                    formatter={numberFormatterTooltip}
+                    isAnimationActive={false}
+                  />
+                )}
                 {!compact && (
                   <>
                     <CartesianGrid strokeDasharray="3 3" />

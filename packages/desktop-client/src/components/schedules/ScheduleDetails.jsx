@@ -1,20 +1,22 @@
 import React, { useEffect, useReducer } from 'react';
-import { useDispatch, useSelector } from 'react-redux';
+import { useDispatch } from 'react-redux';
 
+import { getPayeesById } from 'loot-core/client/reducers/queries';
 import { pushModal } from 'loot-core/src/client/actions/modals';
-import { useCachedPayees } from 'loot-core/src/client/data-hooks/payees';
 import { runQuery, liveQuery } from 'loot-core/src/client/query-helpers';
 import { send, sendCatch } from 'loot-core/src/platform/client/fetch';
 import * as monthUtils from 'loot-core/src/shared/months';
 import { q } from 'loot-core/src/shared/query';
 import { extractScheduleConds } from 'loot-core/src/shared/schedules';
 
+import { useDateFormat } from '../../hooks/useDateFormat';
+import { usePayees } from '../../hooks/usePayees';
 import { useSelected, SelectedProvider } from '../../hooks/useSelected';
 import { theme } from '../../style';
 import { AccountAutocomplete } from '../autocomplete/AccountAutocomplete';
 import { PayeeAutocomplete } from '../autocomplete/PayeeAutocomplete';
-import { Button } from '../common/Button';
-import { Modal } from '../common/Modal';
+import { Button } from '../common/Button2';
+import { Modal, ModalCloseButton, ModalHeader } from '../common/Modal2';
 import { Stack } from '../common/Stack';
 import { Text } from '../common/Text';
 import { View } from '../common/View';
@@ -67,13 +69,12 @@ function updateScheduleConditions(schedule, fields) {
   };
 }
 
-export function ScheduleDetails({ modalProps, actions, id }) {
+export function ScheduleDetails({ id, transaction }) {
   const adding = id == null;
-  const payees = useCachedPayees({ idKey: true });
+  const fromTrans = transaction != null;
+  const payees = getPayeesById(usePayees());
   const globalDispatch = useDispatch();
-  const dateFormat = useSelector(state => {
-    return state.prefs.local.dateFormat || 'MM/dd/yyyy';
-  });
+  const dateFormat = useDateFormat() || 'MM/dd/yyyy';
 
   const [state, dispatch] = useReducer(
     (state, action) => {
@@ -95,7 +96,8 @@ export function ScheduleDetails({ modalProps, actions, id }) {
             fields: {
               payee: schedule._payee,
               account: schedule._account,
-              amount: schedule._amount || 0,
+              // defalut to a non-zero value so the sign can be changed before the value
+              amount: schedule._amount || -1000,
               amountOp: schedule._amountOp || 'isapprox',
               date: schedule._date,
               posts_transaction: action.schedule.posts_transaction,
@@ -143,6 +145,11 @@ export function ScheduleDetails({ modalProps, actions, id }) {
             fields: { ...state.fields, ...fields },
           };
         case 'set-transactions':
+          if (fromTrans && action.transactions) {
+            action.transactions.sort(a => {
+              return transaction.id === a.id ? -1 : 1;
+            });
+          }
           return { ...state, transactions: action.transactions };
         case 'set-repeats':
           return {
@@ -210,12 +217,30 @@ export function ScheduleDetails({ modalProps, actions, id }) {
           endOccurrences: '1',
           endDate: monthUtils.currentDay(),
         };
-        const schedule = {
-          posts_transaction: false,
-          _date: date,
-          _conditions: [{ op: 'isapprox', field: 'date', value: date }],
-          _actions: [],
-        };
+
+        const schedule = fromTrans
+          ? {
+              posts_transaction: false,
+              _conditions: [{ op: 'isapprox', field: 'date', value: date }],
+              _actions: [],
+              _account: transaction.account,
+              _amount: transaction.amount,
+              _amountOp: 'is',
+              name: transaction.payee ? payees[transaction.payee].name : '',
+              _payee: transaction.payee ? transaction.payee : '',
+              _date: {
+                ...date,
+                frequency: 'monthly',
+                start: transaction.date,
+                patterns: [],
+              },
+            }
+          : {
+              posts_transaction: false,
+              _date: date,
+              _conditions: [{ op: 'isapprox', field: 'date', value: date }],
+              _actions: [],
+            };
 
         dispatch({ type: 'set-schedule', schedule });
       } else {
@@ -226,6 +251,7 @@ export function ScheduleDetails({ modalProps, actions, id }) {
         }
       }
     }
+
     run();
   }, []);
 
@@ -321,9 +347,13 @@ export function ScheduleDetails({ modalProps, actions, id }) {
     };
   }, [state.schedule, state.transactionsMode, state.fields]);
 
-  const selectedInst = useSelected('transactions', state.transactions, []);
+  const selectedInst = useSelected(
+    'transactions',
+    state.transactions,
+    transaction ? [transaction.id] : [],
+  );
 
-  async function onSave() {
+  async function onSave(close) {
     dispatch({ type: 'form-error', error: null });
     if (state.fields.name) {
       const { data: sameName } = await runQuery(
@@ -366,12 +396,14 @@ export function ScheduleDetails({ modalProps, actions, id }) {
         error:
           'An error occurred while saving. Please visit https://actualbudget.org/contact/ for support.',
       });
-    } else {
-      if (adding) {
-        await onLinkTransactions([...selectedInst.items], res.data);
-      }
-      actions.popModal();
+      return;
     }
+
+    if (adding) {
+      await onLinkTransactions([...selectedInst.items], res.data);
+    }
+
+    close();
   }
 
   async function onEditRule(ruleId) {
@@ -415,347 +447,358 @@ export function ScheduleDetails({ modalProps, actions, id }) {
   }
 
   const payee = payees ? payees[state.fields.payee] : null;
-
   // This is derived from the date
   const repeats = state.fields.date ? !!state.fields.date.frequency : false;
   return (
-    <Modal
-      title={payee ? `Schedule: ${payee.name}` : 'Schedule'}
-      size="medium"
-      {...modalProps}
-    >
-      <Stack direction="row" style={{ marginTop: 10 }}>
-        <FormField style={{ flex: 1 }}>
-          <FormLabel title="Schedule Name" htmlFor="name-field" />
-          <GenericInput
-            field="string"
-            type="string"
-            value={state.fields.name}
-            multi={false}
-            onChange={e => {
-              dispatch({ type: 'set-field', field: 'name', value: e });
-            }}
+    <Modal name="schedule-edit">
+      {({ state: { close } }) => (
+        <>
+          <ModalHeader
+            title={payee ? `Schedule: ${payee.name}` : 'Schedule'}
+            rightContent={<ModalCloseButton onClick={close} />}
           />
-        </FormField>
-      </Stack>
-      <Stack direction="row" style={{ marginTop: 20 }}>
-        <FormField style={{ flex: 1 }}>
-          <FormLabel title="Payee" id="payee-label" htmlFor="payee-field" />
-          <PayeeAutocomplete
-            value={state.fields.payee}
-            labelProps={{ id: 'payee-label' }}
-            inputProps={{ id: 'payee-field', placeholder: '(none)' }}
-            onSelect={id =>
-              dispatch({ type: 'set-field', field: 'payee', value: id })
-            }
-            isCreatable
-          />
-        </FormField>
-
-        <FormField style={{ flex: 1 }}>
-          <FormLabel
-            title="Account"
-            id="account-label"
-            htmlFor="account-field"
-          />
-          <AccountAutocomplete
-            includeClosedAccounts={false}
-            value={state.fields.account}
-            labelProps={{ id: 'account-label' }}
-            inputProps={{ id: 'account-field', placeholder: '(none)' }}
-            onSelect={id =>
-              dispatch({ type: 'set-field', field: 'account', value: id })
-            }
-          />
-        </FormField>
-
-        <FormField style={{ flex: 1 }}>
-          <Stack direction="row" align="center" style={{ marginBottom: 3 }}>
-            <FormLabel
-              title="Amount"
-              htmlFor="amount-field"
-              style={{ margin: 0, flex: 1 }}
-            />
-            <OpSelect
-              ops={['isapprox', 'is', 'isbetween']}
-              value={state.fields.amountOp}
-              formatOp={op => {
-                switch (op) {
-                  case 'is':
-                    return 'is exactly';
-                  case 'isapprox':
-                    return 'is approximately';
-                  case 'isbetween':
-                    return 'is between';
-                  default:
-                    throw new Error('Invalid op for select: ' + op);
-                }
-              }}
-              style={{
-                padding: '0 10px',
-                color: theme.pageTextLight,
-                fontSize: 12,
-              }}
-              onChange={(_, op) =>
-                dispatch({ type: 'set-field', field: 'amountOp', value: op })
-              }
-            />
+          <Stack direction="row" style={{ marginTop: 10 }}>
+            <FormField style={{ flex: 1 }}>
+              <FormLabel title="Schedule Name" htmlFor="name-field" />
+              <GenericInput
+                field="string"
+                type="string"
+                value={state.fields.name}
+                multi={false}
+                onChange={e => {
+                  dispatch({ type: 'set-field', field: 'name', value: e });
+                }}
+              />
+            </FormField>
           </Stack>
-          {state.fields.amountOp === 'isbetween' ? (
-            <BetweenAmountInput
-              defaultValue={state.fields.amount}
-              onChange={value =>
-                dispatch({
-                  type: 'set-field',
-                  field: 'amount',
-                  value,
-                })
-              }
-            />
-          ) : (
-            <AmountInput
-              id="amount-field"
-              value={state.fields.amount}
-              onUpdate={value =>
-                dispatch({
-                  type: 'set-field',
-                  field: 'amount',
-                  value,
-                })
-              }
-            />
-          )}
-        </FormField>
-      </Stack>
+          <Stack direction="row" style={{ marginTop: 20 }}>
+            <FormField style={{ flex: 1 }}>
+              <FormLabel title="Payee" id="payee-label" htmlFor="payee-field" />
+              <PayeeAutocomplete
+                value={state.fields.payee}
+                labelProps={{ id: 'payee-label' }}
+                inputProps={{ id: 'payee-field', placeholder: '(none)' }}
+                onSelect={id =>
+                  dispatch({ type: 'set-field', field: 'payee', value: id })
+                }
+              />
+            </FormField>
 
-      <View style={{ marginTop: 20 }}>
-        <FormLabel title="Date" />
-      </View>
+            <FormField style={{ flex: 1 }}>
+              <FormLabel
+                title="Account"
+                id="account-label"
+                htmlFor="account-field"
+              />
+              <AccountAutocomplete
+                includeClosedAccounts={false}
+                value={state.fields.account}
+                labelProps={{ id: 'account-label' }}
+                inputProps={{ id: 'account-field', placeholder: '(none)' }}
+                onSelect={id =>
+                  dispatch({ type: 'set-field', field: 'account', value: id })
+                }
+              />
+            </FormField>
 
-      <Stack direction="row" align="flex-start" justify="space-between">
-        <View style={{ width: '13.44rem' }}>
-          {repeats ? (
-            <RecurringSchedulePicker
-              value={state.fields.date}
-              onChange={value =>
-                dispatch({ type: 'set-field', field: 'date', value })
-              }
-            />
-          ) : (
-            <DateSelect
-              value={state.fields.date}
-              onSelect={date =>
-                dispatch({ type: 'set-field', field: 'date', value: date })
-              }
-              dateFormat={dateFormat}
-            />
-          )}
-
-          {state.upcomingDates && (
-            <View style={{ fontSize: 13, marginTop: 20 }}>
-              <Text style={{ color: theme.pageTextLight, fontWeight: 600 }}>
-                Upcoming dates
-              </Text>
-              <Stack
-                direction="column"
-                spacing={1}
-                style={{ marginTop: 10, color: theme.pageTextLight }}
-              >
-                {state.upcomingDates.map(date => (
-                  <View key={date}>
-                    {monthUtils.format(date, `${dateFormat} EEEE`)}
-                  </View>
-                ))}
+            <FormField style={{ flex: 1 }}>
+              <Stack direction="row" align="center" style={{ marginBottom: 3 }}>
+                <FormLabel
+                  title="Amount"
+                  htmlFor="amount-field"
+                  style={{ margin: 0, flex: 1 }}
+                />
+                <OpSelect
+                  ops={['isapprox', 'is', 'isbetween']}
+                  value={state.fields.amountOp}
+                  formatOp={op => {
+                    switch (op) {
+                      case 'is':
+                        return 'is exactly';
+                      case 'isapprox':
+                        return 'is approximately';
+                      case 'isbetween':
+                        return 'is between';
+                      default:
+                        throw new Error('Invalid op for select: ' + op);
+                    }
+                  }}
+                  style={{
+                    padding: '0 10px',
+                    color: theme.pageTextLight,
+                    fontSize: 12,
+                  }}
+                  onChange={(_, op) =>
+                    dispatch({
+                      type: 'set-field',
+                      field: 'amountOp',
+                      value: op,
+                    })
+                  }
+                />
               </Stack>
-            </View>
-          )}
-        </View>
+              {state.fields.amountOp === 'isbetween' ? (
+                <BetweenAmountInput
+                  defaultValue={state.fields.amount}
+                  onChange={value =>
+                    dispatch({
+                      type: 'set-field',
+                      field: 'amount',
+                      value,
+                    })
+                  }
+                />
+              ) : (
+                <AmountInput
+                  id="amount-field"
+                  value={state.fields.amount}
+                  onUpdate={value =>
+                    dispatch({
+                      type: 'set-field',
+                      field: 'amount',
+                      value,
+                    })
+                  }
+                />
+              )}
+            </FormField>
+          </Stack>
 
-        <View
-          style={{
-            marginTop: 5,
-            flexDirection: 'row',
-            alignItems: 'center',
-            userSelect: 'none',
-          }}
-        >
-          <Checkbox
-            id="form_repeats"
-            checked={repeats}
-            onChange={e => {
-              dispatch({ type: 'set-repeats', repeats: e.target.checked });
-            }}
-          />
-          <label htmlFor="form_repeats" style={{ userSelect: 'none' }}>
-            Repeats
-          </label>
-        </View>
-
-        <Stack align="flex-end">
-          <View
-            style={{
-              marginTop: 5,
-              flexDirection: 'row',
-              alignItems: 'center',
-              userSelect: 'none',
-              justifyContent: 'flex-end',
-            }}
-          >
-            <Checkbox
-              id="form_posts_transaction"
-              checked={state.fields.posts_transaction}
-              onChange={e => {
-                dispatch({
-                  type: 'set-field',
-                  field: 'posts_transaction',
-                  value: e.target.checked,
-                });
-              }}
-            />
-            <label
-              htmlFor="form_posts_transaction"
-              style={{ userSelect: 'none' }}
-            >
-              Automatically add transaction
-            </label>
+          <View style={{ marginTop: 20 }}>
+            <FormLabel title="Date" />
           </View>
 
-          <Text
-            style={{
-              width: 350,
-              textAlign: 'right',
-              color: theme.pageTextLight,
-              marginTop: 10,
-              fontSize: 13,
-              lineHeight: '1.4em',
-            }}
-          >
-            If checked, the schedule will automatically create transactions for
-            you in the specified account
-          </Text>
-
-          {!adding && state.schedule.rule && (
-            <Stack direction="row" align="center" style={{ marginTop: 20 }}>
-              {state.isCustom && (
-                <Text
-                  style={{
-                    color: theme.pageTextLight,
-                    fontSize: 13,
-                    textAlign: 'right',
-                    width: 350,
-                  }}
-                >
-                  This schedule has custom conditions and actions
-                </Text>
-              )}
-              <Button onClick={() => onEditRule()} disabled={adding}>
-                Edit as rule
-              </Button>
-            </Stack>
-          )}
-        </Stack>
-      </Stack>
-
-      <View style={{ marginTop: 30, flex: 1 }}>
-        <SelectedProvider instance={selectedInst}>
-          {adding ? (
-            <View style={{ flexDirection: 'row', padding: '5px 0' }}>
-              <Text style={{ color: theme.pageTextLight }}>
-                These transactions match this schedule:
-              </Text>
-              <View style={{ flex: 1 }} />
-              <Text style={{ color: theme.pageTextLight }}>
-                Select transactions to link on save
-              </Text>
-            </View>
-          ) : (
-            <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-              <Button
-                type="bare"
-                style={{
-                  color:
-                    state.transactionsMode === 'linked'
-                      ? theme.pageTextLink
-                      : theme.pageTextSubdued,
-                  marginRight: 10,
-                  fontSize: 14,
-                }}
-                onClick={() => onSwitchTransactions('linked')}
-              >
-                Linked transactions
-              </Button>{' '}
-              <Button
-                type="bare"
-                style={{
-                  color:
-                    state.transactionsMode === 'matched'
-                      ? theme.pageTextLink
-                      : theme.pageTextSubdued,
-                  fontSize: 14,
-                }}
-                onClick={() => onSwitchTransactions('matched')}
-              >
-                Find matching transactions
-              </Button>
-              <View style={{ flex: 1 }} />
-              <SelectedItemsButton
-                name="transactions"
-                items={
-                  state.transactionsMode === 'linked'
-                    ? [{ name: 'unlink', text: 'Unlink from schedule' }]
-                    : [{ name: 'link', text: 'Link to schedule' }]
-                }
-                onSelect={(name, ids) => {
-                  switch (name) {
-                    case 'link':
-                      onLinkTransactions(ids);
-                      break;
-                    case 'unlink':
-                      onUnlinkTransactions(ids);
-                      break;
-                    default:
+          <Stack direction="row" align="flex-start" justify="space-between">
+            <View style={{ width: '13.44rem' }}>
+              {repeats ? (
+                <RecurringSchedulePicker
+                  value={state.fields.date}
+                  onChange={value =>
+                    dispatch({ type: 'set-field', field: 'date', value })
                   }
+                />
+              ) : (
+                <DateSelect
+                  value={state.fields.date}
+                  onSelect={date =>
+                    dispatch({ type: 'set-field', field: 'date', value: date })
+                  }
+                  dateFormat={dateFormat}
+                />
+              )}
+
+              {state.upcomingDates && (
+                <View style={{ fontSize: 13, marginTop: 20 }}>
+                  <Text style={{ color: theme.pageTextLight, fontWeight: 600 }}>
+                    Upcoming dates
+                  </Text>
+                  <Stack
+                    direction="column"
+                    spacing={1}
+                    style={{ marginTop: 10, color: theme.pageTextLight }}
+                  >
+                    {state.upcomingDates.map(date => (
+                      <View key={date}>
+                        {monthUtils.format(date, `${dateFormat} EEEE`)}
+                      </View>
+                    ))}
+                  </Stack>
+                </View>
+              )}
+            </View>
+
+            <View
+              style={{
+                marginTop: 5,
+                flexDirection: 'row',
+                alignItems: 'center',
+                userSelect: 'none',
+              }}
+            >
+              <Checkbox
+                id="form_repeats"
+                checked={repeats}
+                onChange={e => {
+                  dispatch({ type: 'set-repeats', repeats: e.target.checked });
                 }}
               />
+              <label htmlFor="form_repeats" style={{ userSelect: 'none' }}>
+                Repeats
+              </label>
             </View>
-          )}
 
-          <SimpleTransactionsTable
-            renderEmpty={
-              <NoTransactionsMessage
-                error={state.error}
-                transactionsMode={state.transactionsMode}
+            <Stack align="flex-end">
+              <View
+                style={{
+                  marginTop: 5,
+                  flexDirection: 'row',
+                  alignItems: 'center',
+                  userSelect: 'none',
+                  justifyContent: 'flex-end',
+                }}
+              >
+                <Checkbox
+                  id="form_posts_transaction"
+                  checked={state.fields.posts_transaction}
+                  onChange={e => {
+                    dispatch({
+                      type: 'set-field',
+                      field: 'posts_transaction',
+                      value: e.target.checked,
+                    });
+                  }}
+                />
+                <label
+                  htmlFor="form_posts_transaction"
+                  style={{ userSelect: 'none' }}
+                >
+                  Automatically add transaction
+                </label>
+              </View>
+
+              <Text
+                style={{
+                  width: 350,
+                  textAlign: 'right',
+                  color: theme.pageTextLight,
+                  marginTop: 10,
+                  fontSize: 13,
+                  lineHeight: '1.4em',
+                }}
+              >
+                If checked, the schedule will automatically create transactions
+                for you in the specified account
+              </Text>
+
+              {!adding && state.schedule.rule && (
+                <Stack direction="row" align="center" style={{ marginTop: 20 }}>
+                  {state.isCustom && (
+                    <Text
+                      style={{
+                        color: theme.pageTextLight,
+                        fontSize: 13,
+                        textAlign: 'right',
+                        width: 350,
+                      }}
+                    >
+                      This schedule has custom conditions and actions
+                    </Text>
+                  )}
+                  <Button onPress={() => onEditRule()} isDisabled={adding}>
+                    Edit as rule
+                  </Button>
+                </Stack>
+              )}
+            </Stack>
+          </Stack>
+
+          <View style={{ marginTop: 30, flex: 1 }}>
+            <SelectedProvider instance={selectedInst}>
+              {adding ? (
+                <View style={{ flexDirection: 'row', padding: '5px 0' }}>
+                  <Text style={{ color: theme.pageTextLight }}>
+                    These transactions match this schedule:
+                  </Text>
+                  <View style={{ flex: 1 }} />
+                  <Text style={{ color: theme.pageTextLight }}>
+                    Select transactions to link on save
+                  </Text>
+                </View>
+              ) : (
+                <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                  <Button
+                    variant="bare"
+                    style={{
+                      color:
+                        state.transactionsMode === 'linked'
+                          ? theme.pageTextLink
+                          : theme.pageTextSubdued,
+                      marginRight: 10,
+                      fontSize: 14,
+                    }}
+                    onPress={() => onSwitchTransactions('linked')}
+                  >
+                    Linked transactions
+                  </Button>{' '}
+                  <Button
+                    variant="bare"
+                    style={{
+                      color:
+                        state.transactionsMode === 'matched'
+                          ? theme.pageTextLink
+                          : theme.pageTextSubdued,
+                      fontSize: 14,
+                    }}
+                    onPress={() => onSwitchTransactions('matched')}
+                  >
+                    Find matching transactions
+                  </Button>
+                  <View style={{ flex: 1 }} />
+                  <SelectedItemsButton
+                    name="transactions"
+                    items={
+                      state.transactionsMode === 'linked'
+                        ? [{ name: 'unlink', text: 'Unlink from schedule' }]
+                        : [{ name: 'link', text: 'Link to schedule' }]
+                    }
+                    onSelect={(name, ids) => {
+                      switch (name) {
+                        case 'link':
+                          onLinkTransactions(ids);
+                          break;
+                        case 'unlink':
+                          onUnlinkTransactions(ids);
+                          break;
+                        default:
+                      }
+                    }}
+                  />
+                </View>
+              )}
+
+              <SimpleTransactionsTable
+                renderEmpty={
+                  <NoTransactionsMessage
+                    error={state.error}
+                    transactionsMode={state.transactionsMode}
+                  />
+                }
+                transactions={state.transactions}
+                fields={['date', 'payee', 'amount']}
+                style={{
+                  border: '1px solid ' + theme.tableBorder,
+                  borderRadius: 4,
+                  overflow: 'hidden',
+                  marginTop: 5,
+                  maxHeight: 200,
+                }}
               />
-            }
-            transactions={state.transactions}
-            fields={['date', 'payee', 'amount']}
-            style={{
-              border: '1px solid ' + theme.tableBorder,
-              borderRadius: 4,
-              overflow: 'hidden',
-              marginTop: 5,
-              maxHeight: 200,
-            }}
-          />
-        </SelectedProvider>
-      </View>
+            </SelectedProvider>
+          </View>
 
-      <Stack
-        direction="row"
-        justify="flex-end"
-        align="center"
-        style={{ marginTop: 20 }}
-      >
-        {state.error && (
-          <Text style={{ color: theme.errorText }}>{state.error}</Text>
-        )}
-        <Button style={{ marginRight: 10 }} onClick={actions.popModal}>
-          Cancel
-        </Button>
-        <Button type="primary" onClick={onSave}>
-          {adding ? 'Add' : 'Save'}
-        </Button>
-      </Stack>
+          <Stack
+            direction="row"
+            justify="flex-end"
+            align="center"
+            style={{ marginTop: 20 }}
+          >
+            {state.error && (
+              <Text style={{ color: theme.errorText }}>{state.error}</Text>
+            )}
+            <Button style={{ marginRight: 10 }} onPress={close}>
+              Cancel
+            </Button>
+            <Button
+              variant="primary"
+              onPress={() => {
+                onSave(close);
+              }}
+            >
+              {adding ? 'Add' : 'Save'}
+            </Button>
+          </Stack>
+        </>
+      )}
     </Modal>
   );
 }

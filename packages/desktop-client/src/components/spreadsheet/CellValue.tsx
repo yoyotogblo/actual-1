@@ -5,15 +5,18 @@ import { type CSSProperties, styles } from '../../style';
 import { Text } from '../common/Text';
 import { ConditionalPrivacyFilter } from '../PrivacyFilter';
 
-import { useFormat } from './useFormat';
+import { type FormatType, useFormat } from './useFormat';
 import { useSheetName } from './useSheetName';
 import { useSheetValue } from './useSheetValue';
 
-import { type Binding } from '.';
+import { type Binding, type SheetNames, type SheetFields } from '.';
 
-type CellValueProps = {
-  binding: string | Binding;
-  type?: string;
+export type CellValueProps<
+  SheetName extends SheetNames,
+  FieldName extends SheetFields<SheetName>,
+> = {
+  binding: Binding<SheetName, FieldName>;
+  type?: FormatType;
   formatter?: (value) => ReactNode;
   style?: CSSProperties;
   getStyle?: (value) => CSSProperties;
@@ -32,7 +35,8 @@ export function CellValue({
   privacyFilter,
   'data-testid': testId,
   ...props
-}: CellValueProps) {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+}: CellValueProps<any, any>) {
   const { fullSheetName } = useSheetName(binding);
   const sheetValue = useSheetValue(binding);
   const format = useFormat();

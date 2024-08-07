@@ -44,7 +44,7 @@ export class RulesPage {
         .first()
         .click();
       await this.page
-        .getByRole('option', { exact: true, name: data.conditionsOp })
+        .getByRole('button', { exact: true, name: data.conditionsOp })
         .click();
     }
 
@@ -61,6 +61,27 @@ export class RulesPage {
         this.page.getByTestId('action-list'),
       );
     }
+
+    if (data.splits) {
+      if (data.splits.beforeSplitActions) {
+        await this._fillEditorFields(
+          data.splits.beforeSplitActions,
+          this.page.getByTestId('action-list'),
+        );
+      }
+
+      if (data.splits.splitActions) {
+        let idx = data.splits?.beforeSplitActions.length ?? 0;
+        for (const splitActions of data.splits.splitActions) {
+          await this.page.getByTestId('add-split-transactions').click();
+          await this._fillEditorFields(
+            splitActions,
+            this.page.getByTestId('action-list').nth(idx),
+          );
+          idx++;
+        }
+      }
+    }
   }
 
   async _fillEditorFields(data, rootElement) {
@@ -76,13 +97,13 @@ export class RulesPage {
       if (field) {
         await row.getByRole('button').first().click();
         await this.page
-          .getByRole('option', { exact: true, name: field })
+          .getByRole('button', { exact: true, name: field })
           .click();
       }
 
       if (op) {
         await row.getByRole('button', { name: 'is' }).click();
-        await this.page.getByRole('option', { name: op, exact: true }).click();
+        await this.page.getByRole('button', { name: op, exact: true }).click();
       }
 
       if (value) {

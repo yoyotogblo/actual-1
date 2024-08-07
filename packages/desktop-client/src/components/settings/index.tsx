@@ -1,27 +1,30 @@
-// @ts-strict-ignore
 import React, { type ReactNode, useEffect } from 'react';
-import { useSelector } from 'react-redux';
 
 import { media } from 'glamor';
 
-import * as Platform from 'loot-core/src/client/platform';
 import { listen } from 'loot-core/src/platform/client/fetch';
+import { isElectron } from 'loot-core/src/shared/environment';
 
 import { useActions } from '../../hooks/useActions';
+import { useFeatureFlag } from '../../hooks/useFeatureFlag';
+import { useGlobalPref } from '../../hooks/useGlobalPref';
 import { useLatestVersion, useIsOutdated } from '../../hooks/useLatestVersion';
+import { useLocalPref } from '../../hooks/useLocalPref';
 import { useSetThemeColor } from '../../hooks/useSetThemeColor';
 import { useResponsive } from '../../ResponsiveProvider';
 import { theme } from '../../style';
 import { tokens } from '../../tokens';
-import { Button } from '../common/Button';
-import { ExternalLink } from '../common/ExternalLink';
+import { Button } from '../common/Button2';
 import { Input } from '../common/Input';
+import { Link } from '../common/Link';
 import { Text } from '../common/Text';
 import { View } from '../common/View';
 import { FormField, FormLabel } from '../forms';
+import { MOBILE_NAV_HEIGHT } from '../mobile/MobileNavTabs';
 import { Page } from '../Page';
 import { useServerVersion } from '../ServerContext';
 
+import { BudgetTypeSettings } from './BudgetTypeSettings';
 import { EncryptionSettings } from './Encryption';
 import { ExperimentalFeatures } from './Experimental';
 import { ExportBudget } from './Export';
@@ -57,27 +60,29 @@ function About() {
         })}`}
         data-vrt-mask
       >
-        <Text>Client version: v{window.Actual.ACTUAL_VERSION}</Text>
+        <Text>Client version: v{window.Actual?.ACTUAL_VERSION}</Text>
         <Text>Server version: {version}</Text>
         {isOutdated ? (
-          <ExternalLink
+          <Link
+            variant="external"
             to="https://actualbudget.org/docs/releases"
             linkColor="purple"
           >
             New version available: {latestVersion}
-          </ExternalLink>
+          </Link>
         ) : (
           <Text style={{ color: theme.noticeText, fontWeight: 600 }}>
             You’re up to date!
           </Text>
         )}
         <Text>
-          <ExternalLink
+          <Link
+            variant="external"
             to="https://actualbudget.org/docs/releases"
             linkColor="purple"
           >
             Release Notes
-          </ExternalLink>
+          </Link>
         </Text>
       </View>
     </Setting>
@@ -89,8 +94,8 @@ function IDName({ children }: { children: ReactNode }) {
 }
 
 function AdvancedAbout() {
-  const budgetId = useSelector(state => state.prefs.local.id);
-  const groupId = useSelector(state => state.prefs.local.groupId);
+  const [budgetId] = useLocalPref('id');
+  const [groupId] = useLocalPref('groupId');
 
   return (
     <Setting>
@@ -118,10 +123,8 @@ function AdvancedAbout() {
 }
 
 export function Settings() {
-  const floatingSidebar = useSelector(
-    state => state.prefs.global.floatingSidebar,
-  );
-  const budgetName = useSelector(state => state.prefs.local.budgetName);
+  const [floatingSidebar] = useGlobalPref('floatingSidebar');
+  const [budgetName] = useLocalPref('budgetName');
 
   const { loadPrefs, closeBudget } = useActions();
 
@@ -139,13 +142,20 @@ export function Settings() {
   useSetThemeColor(theme.mobileViewTheme);
   return (
     <Page
-      title="Settings"
+      header="Settings"
       style={{
-        backgroundColor: isNarrowWidth && theme.mobilePageBackground,
         marginInline: floatingSidebar && !isNarrowWidth ? 'auto' : 0,
+        paddingBottom: MOBILE_NAV_HEIGHT,
       }}
     >
-      <View style={{ flexShrink: 0, maxWidth: 530, gap: 30 }}>
+      <View
+        style={{
+          marginTop: 10,
+          flexShrink: 0,
+          maxWidth: 530,
+          gap: 30,
+        }}
+      >
         {isNarrowWidth && (
           <View
             style={{ gap: 10, flexDirection: 'row', alignItems: 'flex-end' }}
@@ -159,19 +169,16 @@ export function Settings() {
                 style={{ color: theme.buttonNormalDisabledText }}
               />
             </FormField>
-            <Button onClick={closeBudget}>Close Budget</Button>
+            <Button onPress={closeBudget}>Close Budget</Button>
           </View>
         )}
-
         <About />
-
-        {!Platform.isBrowser && <GlobalSettings />}
-
+        {isElectron() && <GlobalSettings />}
         <ThemeSettings />
         <FormatSettings />
         <EncryptionSettings />
+        {useFeatureFlag('reportBudget') && <BudgetTypeSettings />}
         <ExportBudget />
-
         <AdvancedToggle>
           <AdvancedAbout />
           <ResetCache />

@@ -199,11 +199,29 @@ export function titleFirst(str: string) {
   return str[0].toUpperCase() + str.slice(1);
 }
 
+export function appendDecimals(
+  amountText: string,
+  hideDecimals = false,
+): string {
+  const { separator } = getNumberFormat();
+  let result = amountText;
+  if (result.slice(-1) === separator) {
+    result = result.slice(0, -1);
+  }
+  if (!hideDecimals) {
+    result = result.replaceAll(/[,.]/g, '');
+    result = result.replace(/^0+(?!$)/, '');
+    result = result.padStart(3, '0');
+    result = result.slice(0, -2) + separator + result.slice(-2);
+  }
+  return amountToCurrency(currencyToAmount(result));
+}
+
 type NumberFormats =
   | 'comma-dot'
   | 'dot-comma'
   | 'space-comma'
-  | 'space-dot'
+  | 'apostrophe-dot'
   | 'comma-dot-in';
 
 export const numberFormats: Array<{
@@ -213,8 +231,8 @@ export const numberFormats: Array<{
 }> = [
   { value: 'comma-dot', label: '1,000.33', labelNoFraction: '1,000' },
   { value: 'dot-comma', label: '1.000,33', labelNoFraction: '1.000' },
-  { value: 'space-comma', label: '1 000,33', labelNoFraction: '1 000' },
-  { value: 'space-dot', label: '1 000.33', labelNoFraction: '1 000' },
+  { value: 'space-comma', label: '1\xa0000,33', labelNoFraction: '1\xa0000' },
+  { value: 'apostrophe-dot', label: '1’000.33', labelNoFraction: '1’000' },
   { value: 'comma-dot-in', label: '1,00,000.33', labelNoFraction: '1,00,000' },
 ];
 
@@ -237,23 +255,25 @@ export function getNumberFormat({
   format?: NumberFormats;
   hideFraction: boolean;
 } = numberFormatConfig) {
-  let locale, regex, separator;
+  let locale, regex, separator, separatorRegex;
 
   switch (format) {
     case 'space-comma':
       locale = 'en-SE';
-      regex = /[^-0-9,]/g;
+      regex = /[^-0-9,.]/g;
       separator = ',';
+      separatorRegex = /[,.]/g;
       break;
     case 'dot-comma':
       locale = 'de-DE';
       regex = /[^-0-9,]/g;
       separator = ',';
       break;
-    case 'space-dot':
-      locale = 'dje';
-      regex = /[^-0-9.]/g;
+    case 'apostrophe-dot':
+      locale = 'de-CH';
+      regex = /[^-0-9,.]/g;
       separator = '.';
+      separatorRegex = /[,.]/g;
       break;
     case 'comma-dot-in':
       locale = 'en-IN';
@@ -275,6 +295,7 @@ export function getNumberFormat({
       maximumFractionDigits: hideFraction ? 0 : 2,
     }),
     regex,
+    separatorRegex,
   };
 }
 
@@ -320,15 +341,27 @@ export function amountToCurrency(n) {
 }
 
 export function amountToCurrencyNoDecimal(n) {
-  return getNumberFormat({ hideFraction: true }).formatter.format(n);
+  return getNumberFormat({
+    ...numberFormatConfig,
+    hideFraction: true,
+  }).formatter.format(n);
 }
 
 export function currencyToAmount(str: string) {
-  const amount = parseFloat(
-    str
-      .replace(getNumberFormat().regex, '')
-      .replace(getNumberFormat().separator, '.'),
-  );
+  let amount;
+  if (getNumberFormat().separatorRegex) {
+    amount = parseFloat(
+      str
+        .replace(getNumberFormat().regex, '')
+        .replace(getNumberFormat().separatorRegex, '.'),
+    );
+  } else {
+    amount = parseFloat(
+      str
+        .replace(getNumberFormat().regex, '')
+        .replace(getNumberFormat().separator, '.'),
+    );
+  }
   return isNaN(amount) ? null : amount;
 }
 
@@ -359,7 +392,16 @@ export function integerToAmount(n) {
 // currencies. We extract out the numbers and just ignore separators.
 export function looselyParseAmount(amount: string) {
   function safeNumber(v: number): null | number {
-    return isNaN(v) ? null : v;
+    if (isNaN(v)) {
+      return null;
+    }
+
+    const value = v * 100;
+    if (value > MAX_SAFE_NUMBER || value < MIN_SAFE_NUMBER) {
+      return null;
+    }
+
+    return v;
   }
 
   function extractNumbers(v: string): string {
@@ -370,8 +412,10 @@ export function looselyParseAmount(amount: string) {
     amount = amount.replace('(', '-').replace(')', '');
   }
 
-  const m = amount.match(/[.,][^.,]*$/);
-  if (!m || m.index === undefined || m.index === 0) {
+  // Look for a decimal marker, then look for either 1-2 or 5-9 decimal places.
+  // This avoids matching against 3 places which may not actually be decimal
+  const m = amount.match(/[.,]([^.,]{5,9}|[^.,]{1,2})$/);
+  if (!m || m.index === undefined) {
     return safeNumber(parseFloat(extractNumbers(amount)));
   }
 

@@ -1,11 +1,10 @@
-// @ts-strict-ignore
 import React, { useState } from 'react';
-import { useSelector } from 'react-redux';
 
 import { send } from 'loot-core/src/platform/client/fetch';
 
 import { useActions } from '../../hooks/useActions';
-import { ButtonWithLoading } from '../common/Button';
+import { useLocalPref } from '../../hooks/useLocalPref';
+import { ButtonWithLoading } from '../common/Button2';
 import { Text } from '../common/Text';
 
 import { Setting } from './UI';
@@ -22,7 +21,7 @@ export function ResetCache() {
   return (
     <Setting
       primaryAction={
-        <ButtonWithLoading loading={resetting} onClick={onResetCache}>
+        <ButtonWithLoading isLoading={resetting} onPress={onResetCache}>
           Reset budget cache
         </ButtonWithLoading>
       }
@@ -39,7 +38,8 @@ export function ResetCache() {
 }
 
 export function ResetSync() {
-  const isEnabled = useSelector(state => !!state.prefs.local.groupId);
+  const [groupId] = useLocalPref('groupId');
+  const isEnabled = !!groupId;
   const { resetSync } = useActions();
 
   const [resetting, setResetting] = useState(false);
@@ -54,9 +54,9 @@ export function ResetSync() {
     <Setting
       primaryAction={
         <ButtonWithLoading
-          loading={resetting}
-          disabled={!isEnabled}
-          onClick={onResetSync}
+          isLoading={resetting}
+          isDisabled={!isEnabled}
+          onPress={onResetSync}
         >
           Reset sync
         </ButtonWithLoading>

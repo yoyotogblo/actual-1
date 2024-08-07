@@ -6,7 +6,7 @@ import { importBudget } from 'loot-core/src/client/actions/budgets';
 
 import { styles, theme } from '../../style';
 import { Block } from '../common/Block';
-import { ButtonWithLoading } from '../common/Button';
+import { ButtonWithLoading } from '../common/Button2';
 import { Modal, type ModalProps } from '../common/Modal';
 import { Paragraph } from '../common/Paragraph';
 import { View } from '../common/View';
@@ -38,7 +38,7 @@ export function ImportActual({ modalProps }: ImportProps) {
   const [importing, setImporting] = useState(false);
 
   async function onImport() {
-    const res = await window.Actual.openFileDialog({
+    const res = await window.Actual?.openFileDialog({
       properties: ['openFile'],
       filters: [{ name: 'actual', extensions: ['zip', 'blob'] }],
     });
@@ -83,9 +83,9 @@ export function ImportActual({ modalProps }: ImportProps) {
 
             <View style={{ alignSelf: 'center' }}>
               <ButtonWithLoading
-                type="primary"
-                loading={importing}
-                onClick={onImport}
+                variant="primary"
+                isLoading={importing}
+                onPress={onImport}
               >
                 Select file...
               </ButtonWithLoading>

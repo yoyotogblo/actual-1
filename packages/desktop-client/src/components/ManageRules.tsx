@@ -7,22 +7,25 @@ import React, {
   type SetStateAction,
   type Dispatch,
 } from 'react';
-import { useDispatch, useSelector } from 'react-redux';
+import { useDispatch } from 'react-redux';
 
 import { pushModal } from 'loot-core/src/client/actions/modals';
 import { initiallyLoadPayees } from 'loot-core/src/client/actions/queries';
 import { send } from 'loot-core/src/platform/client/fetch';
 import * as undo from 'loot-core/src/platform/client/undo';
+import { getNormalisedString } from 'loot-core/src/shared/normalisation';
 import { mapField, friendlyOp } from 'loot-core/src/shared/rules';
 import { describeSchedule } from 'loot-core/src/shared/schedules';
-import { type RuleEntity } from 'loot-core/src/types/models';
+import { type NewRuleEntity } from 'loot-core/src/types/models';
 
+import { useAccounts } from '../hooks/useAccounts';
 import { useCategories } from '../hooks/useCategories';
+import { usePayees } from '../hooks/usePayees';
 import { useSelected, SelectedProvider } from '../hooks/useSelected';
 import { theme } from '../style';
 
-import { Button } from './common/Button';
-import { ExternalLink } from './common/ExternalLink';
+import { Button } from './common/Button2';
+import { Link } from './common/Link';
 import { Search } from './common/Search';
 import { Stack } from './common/Stack';
 import { Text } from './common/Text';
@@ -103,11 +106,13 @@ function ManageRulesContent({
 
   const { data: schedules } = SchedulesQuery.useQuery();
   const { list: categories } = useCategories();
-  const state = useSelector(state => ({
-    payees: state.queries.payees,
-    accounts: state.queries.accounts,
+  const payees = usePayees();
+  const accounts = useAccounts();
+  const state = {
+    payees,
+    accounts,
     schedules,
-  }));
+  };
   const filterData = useMemo(
     () => ({
       ...state,
@@ -121,9 +126,9 @@ function ManageRulesContent({
       (filter === ''
         ? allRules
         : allRules.filter(rule =>
-            ruleToString(rule, filterData)
-              .toLowerCase()
-              .includes(filter.toLowerCase()),
+            getNormalisedString(ruleToString(rule, filterData)).includes(
+              getNormalisedString(filter),
+            ),
           )
       ).slice(0, 100 + page * 50),
     [allRules, filter, filterData, page],
@@ -206,7 +211,7 @@ function ManageRulesContent({
   }, []);
 
   function onCreateRule() {
-    const rule: RuleEntity = {
+    const rule: NewRuleEntity = {
       stage: null,
       conditionsOp: 'and',
       conditions: [
@@ -263,12 +268,13 @@ function ManageRulesContent({
           >
             <Text>
               Rules are always run in the order that you see them.{' '}
-              <ExternalLink
+              <Link
+                variant="external"
                 to="https://actualbudget.org/docs/budgeting/rules/"
                 linkColor="muted"
               >
                 Learn more
-              </ExternalLink>
+              </Link>
             </Text>
           </View>
           <View style={{ flex: 1 }} />
@@ -308,11 +314,11 @@ function ManageRulesContent({
         >
           <Stack direction="row" align="center" justify="flex-end" spacing={2}>
             {selectedInst.items.size > 0 && (
-              <Button onClick={onDeleteSelected}>
+              <Button onPress={onDeleteSelected}>
                 Delete {selectedInst.items.size} rules
               </Button>
             )}
-            <Button type="primary" onClick={onCreateRule}>
+            <Button variant="primary" onPress={onCreateRule}>
               Create new rule
             </Button>
           </Stack>

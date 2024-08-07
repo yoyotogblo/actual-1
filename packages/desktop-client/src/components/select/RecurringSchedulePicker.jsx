@@ -1,20 +1,21 @@
-import React, { useEffect, useReducer, useState } from 'react';
-import { useSelector } from 'react-redux';
+import React, { useEffect, useReducer, useRef, useState } from 'react';
 
 import { sendCatch } from 'loot-core/src/platform/client/fetch';
 import * as monthUtils from 'loot-core/src/shared/months';
 import { getRecurringDescription } from 'loot-core/src/shared/schedules';
 
+import { useDateFormat } from '../../hooks/useDateFormat';
 import { SvgAdd, SvgSubtract } from '../../icons/v0';
 import { theme } from '../../style';
-import { Button } from '../common/Button';
+import { Button } from '../common/Button2';
 import { Input } from '../common/Input';
+import { Menu } from '../common/Menu';
+import { Popover } from '../common/Popover';
 import { Select } from '../common/Select';
 import { Stack } from '../common/Stack';
 import { Text } from '../common/Text';
 import { View } from '../common/View';
 import { Checkbox } from '../forms';
-import { useTooltip, Tooltip } from '../tooltips';
 
 import { DateSelect } from './DateSelect';
 
@@ -48,19 +49,18 @@ function parsePatternValue(value) {
 }
 
 function parseConfig(config) {
-  return (
-    config || {
-      start: monthUtils.currentDay(),
-      interval: 1,
-      frequency: 'monthly',
-      patterns: [createMonthlyRecurrence(monthUtils.currentDay())],
-      skipWeekend: false,
-      weekendSolveMode: 'before',
-      endMode: 'never',
-      endOccurrences: '1',
-      endDate: monthUtils.currentDay(),
-    }
-  );
+  return {
+    start: monthUtils.currentDay(),
+    interval: 1,
+    frequency: 'monthly',
+    patterns: [createMonthlyRecurrence(monthUtils.currentDay())],
+    skipWeekend: false,
+    weekendSolveMode: 'before',
+    endMode: 'never',
+    endOccurrences: '1',
+    endDate: monthUtils.currentDay(),
+    ...config,
+  };
 }
 
 function unparseConfig(parsed) {
@@ -159,11 +159,9 @@ function reducer(state, action) {
 }
 
 function SchedulePreview({ previewDates }) {
-  const dateFormat = useSelector(state =>
-    (state.prefs.local.dateFormat || 'MM/dd/yyyy')
-      .replace('MM', 'M')
-      .replace('dd', 'd'),
-  );
+  const dateFormat = (useDateFormat() || 'MM/dd/yyyy')
+    .replace('MM', 'M')
+    .replace('dd', 'd');
 
   if (!previewDates) {
     return null;
@@ -221,7 +219,7 @@ function MonthlyPatterns({ config, dispatch }) {
           <Select
             options={[
               [-1, 'Last'],
-              ['-', '---'],
+              Menu.line,
               ...DAY_OF_MONTH_OPTIONS.map(opt => [opt, opt]),
             ]}
             value={recurrence.value}
@@ -229,26 +227,24 @@ function MonthlyPatterns({ config, dispatch }) {
               updateRecurrence(recurrence, 'value', parsePatternValue(value))
             }
             disabledKeys={['-']}
-            wrapperStyle={{ flex: 1, marginRight: 10 }}
-            style={{ minHeight: '1px', width: '100%' }}
+            buttonStyle={{ flex: 1, marginRight: 10 }}
           />
           <Select
             options={[
               ['day', 'Day'],
-              ['-', '---'],
+              Menu.line,
               ...DAY_OF_WEEK_OPTIONS.map(opt => [opt.id, opt.name]),
             ]}
             value={recurrence.type}
             onChange={value => updateRecurrence(recurrence, 'type', value)}
             disabledKeys={['-']}
-            wrapperStyle={{ flex: 1, marginRight: 10 }}
-            style={{ minHeight: '1px', width: '100%' }}
+            buttonStyle={{ flex: 1, marginRight: 10 }}
           />
           <Button
-            type="bare"
+            variant="bare"
             aria-label="Remove recurrence"
             style={{ padding: 7 }}
-            onClick={() =>
+            onPress={() =>
               dispatch({
                 type: 'remove-recurrence',
                 recurrence,
@@ -258,10 +254,10 @@ function MonthlyPatterns({ config, dispatch }) {
             <SvgSubtract style={{ width: 8, height: 8 }} />
           </Button>
           <Button
-            type="bare"
+            variant="bare"
             aria-label="Add recurrence"
             style={{ padding: 7, marginLeft: 5 }}
-            onClick={() => dispatch({ type: 'add-recurrence' })}
+            onPress={() => dispatch({ type: 'add-recurrence' })}
           >
             <SvgAdd style={{ width: 10, height: 10 }} />
           </Button>
@@ -281,9 +277,7 @@ function RecurringScheduleTooltip({ config: currentConfig, onClose, onSave }) {
   const skipWeekend = state.config.hasOwnProperty('skipWeekend')
     ? state.config.skipWeekend
     : false;
-  const dateFormat = useSelector(
-    state => state.prefs.local.dateFormat || 'MM/dd/yyyy',
-  );
+  const dateFormat = useDateFormat() || 'MM/dd/yyyy';
 
   useEffect(() => {
     dispatch({
@@ -313,12 +307,7 @@ function RecurringScheduleTooltip({ config: currentConfig, onClose, onSave }) {
   }
 
   return (
-    <Tooltip
-      style={{ padding: 10, width: 380 }}
-      offset={1}
-      position="bottom-left"
-      onClose={onClose}
-    >
+    <>
       <div style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
         <label htmlFor="start">From</label>
         <DateSelect
@@ -331,7 +320,6 @@ function RecurringScheduleTooltip({ config: currentConfig, onClose, onSave }) {
         />
         <Select
           id="repeat_end_dropdown"
-          bare
           options={[
             ['never', 'indefinitely'],
             ['after_n_occurrences', 'for'],
@@ -339,10 +327,6 @@ function RecurringScheduleTooltip({ config: currentConfig, onClose, onSave }) {
           ]}
           value={config.endMode}
           onChange={value => updateField('endMode', value)}
-          style={{
-            border: '1px solid ' + theme.formInputBorder,
-            height: 27.5,
-          }}
         />
         {config.endMode === 'after_n_occurrences' && (
           <>
@@ -385,11 +369,10 @@ function RecurringScheduleTooltip({ config: currentConfig, onClose, onSave }) {
           defaultValue={config.interval || 1}
         />
         <Select
-          bare
           options={FREQUENCY_OPTIONS.map(opt => [opt.id, opt.name])}
           value={config.frequency}
           onChange={value => updateField('frequency', value)}
-          style={{ border: '1px solid ' + theme.formInputBorder, height: 27.5 }}
+          buttonStyle={{ marginRight: 5 }}
         />
         {config.frequency === 'monthly' &&
         (config.patterns == null || config.patterns.length === 0) ? (
@@ -398,7 +381,7 @@ function RecurringScheduleTooltip({ config: currentConfig, onClose, onSave }) {
               backgroundColor: theme.tableBackground,
               ':hover': { backgroundColor: theme.tableBackground },
             }}
-            onClick={() => dispatch({ type: 'add-recurrence' })}
+            onPress={() => dispatch({ type: 'add-recurrence' })}
           >
             Add specific days
           </Button>
@@ -447,11 +430,6 @@ function RecurringScheduleTooltip({ config: currentConfig, onClose, onSave }) {
             value={state.config.weekendSolveMode}
             onChange={value => dispatch({ type: 'set-weekend-solve', value })}
             disabled={!skipWeekend}
-            style={{
-              backgroundColor: theme.tableBackground,
-              minHeight: '1px',
-              width: '5rem',
-            }}
           />
           <label
             htmlFor="solve_dropdown"
@@ -466,47 +444,54 @@ function RecurringScheduleTooltip({ config: currentConfig, onClose, onSave }) {
       <div
         style={{ display: 'flex', marginTop: 15, justifyContent: 'flex-end' }}
       >
-        <Button onClick={onClose}>Cancel</Button>
+        <Button onPress={onClose}>Cancel</Button>
         <Button
-          type="primary"
-          onClick={() => onSave(unparseConfig(config))}
+          variant="primary"
+          onPress={() => onSave(unparseConfig(config))}
           style={{ marginLeft: 10 }}
         >
           Apply
         </Button>
       </div>
-    </Tooltip>
+    </>
   );
 }
 
 export function RecurringSchedulePicker({ value, buttonStyle, onChange }) {
-  const { isOpen, close, getOpenEvents } = useTooltip();
-  const dateFormat = useSelector(
-    state => state.prefs.local.dateFormat || 'MM/dd/yyyy',
-  );
+  const triggerRef = useRef(null);
+  const [isOpen, setIsOpen] = useState(false);
+  const dateFormat = useDateFormat() || 'MM/dd/yyyy';
 
   function onSave(config) {
     onChange(config);
-    close();
+    setIsOpen(false);
   }
 
   return (
     <View>
       <Button
-        {...getOpenEvents()}
+        ref={triggerRef}
         style={{ textAlign: 'left', ...buttonStyle }}
+        onPress={() => setIsOpen(true)}
       >
         {value
           ? getRecurringDescription(value, dateFormat)
           : 'No recurring date'}
       </Button>
-      {isOpen && (
+
+      <Popover
+        triggerRef={triggerRef}
+        style={{ padding: 10, width: 380 }}
+        placement="bottom start"
+        isOpen={isOpen}
+        onOpenChange={() => setIsOpen(false)}
+      >
         <RecurringScheduleTooltip
           config={value}
-          onClose={close}
+          onClose={() => setIsOpen(false)}
           onSave={onSave}
         />
-      )}
+      </Popover>
     </View>
   );
 }

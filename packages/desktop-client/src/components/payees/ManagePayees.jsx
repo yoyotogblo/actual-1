@@ -11,6 +11,7 @@ import {
 
 import memoizeOne from 'memoize-one';
 
+import { getNormalisedString } from 'loot-core/src/shared/normalisation';
 import { groupById } from 'loot-core/src/shared/util';
 
 import {
@@ -22,7 +23,8 @@ import {
 import { useStableCallback } from '../../hooks/useStableCallback';
 import { SvgExpandArrow } from '../../icons/v0';
 import { theme } from '../../style';
-import { Button } from '../common/Button';
+import { Button } from '../common/Button2';
+import { Popover } from '../common/Popover';
 import { Search } from '../common/Search';
 import { View } from '../common/View';
 import { TableHeader, Cell, SelectCell, useTableNavigator } from '../table';
@@ -102,6 +104,7 @@ export const ManagePayees = forwardRef(
     const [filter, setFilter] = useState('');
     const table = useRef(null);
     const scrollTo = useRef(null);
+    const triggerRef = useRef(null);
     const resetAnimation = useRef(false);
     const [orphanedOnly, setOrphanedOnly] = useState(false);
 
@@ -109,7 +112,7 @@ export const ManagePayees = forwardRef(
       let filtered = payees;
       if (filter) {
         filtered = filtered.filter(p =>
-          p.name.toLowerCase().includes(filter.toLowerCase()),
+          getNormalisedString(p.name).includes(getNormalisedString(filter)),
         );
       }
       if (orphanedOnly) {
@@ -196,6 +199,22 @@ export const ManagePayees = forwardRef(
       selected.dispatch({ type: 'select-none' });
     }
 
+    function onFavorite() {
+      const allFavorited = [...selected.items]
+        .map(id => payeesById[id].favorite)
+        .every(f => f === 1);
+      if (allFavorited) {
+        onBatchChange({
+          updated: [...selected.items].map(id => ({ id, favorite: 0 })),
+        });
+      } else {
+        onBatchChange({
+          updated: [...selected.items].map(id => ({ id, favorite: 1 })),
+        });
+      }
+      selected.dispatch({ type: 'select-none' });
+    }
+
     async function onMerge() {
       const ids = [...selected.items];
       await props.onMerge(ids);
@@ -233,10 +252,11 @@ export const ManagePayees = forwardRef(
         >
           <View style={{ flexShrink: 0 }}>
             <Button
-              type="bare"
+              ref={triggerRef}
+              variant="bare"
               style={{ marginRight: 10 }}
-              disabled={buttonsDisabled}
-              onClick={() => setMenuOpen(true)}
+              isDisabled={buttonsDisabled}
+              onPress={() => setMenuOpen(true)}
             >
               {buttonsDisabled
                 ? 'No payees selected'
@@ -245,15 +265,23 @@ export const ManagePayees = forwardRef(
                   plural(selected.items.size, 'payee', 'payees')}
               <SvgExpandArrow width={8} height={8} style={{ marginLeft: 5 }} />
             </Button>
-            {menuOpen && (
+
+            <Popover
+              triggerRef={triggerRef}
+              isOpen={menuOpen}
+              placement="bottom start"
+              style={{ width: 250 }}
+              onOpenChange={() => setMenuOpen(false)}
+            >
               <PayeeMenu
                 payeesById={payeesById}
                 selectedPayees={selected.items}
                 onClose={() => setMenuOpen(false)}
                 onDelete={onDelete}
                 onMerge={onMerge}
+                onFavorite={onFavorite}
               />
-            )}
+            </Popover>
           </View>
           <View
             style={{
@@ -263,9 +291,9 @@ export const ManagePayees = forwardRef(
             {(orphanedOnly ||
               (orphanedPayees && orphanedPayees.length > 0)) && (
               <Button
-                type="bare"
+                variant="bare"
                 style={{ marginRight: 10 }}
-                onClick={() => {
+                onPress={() => {
                   setOrphanedOnly(!orphanedOnly);
                   applyFilter(filter);
                   tableNavigator.onEdit(null);
@@ -321,3 +349,5 @@ export const ManagePayees = forwardRef(
     );
   },
 );
+
+ManagePayees.displayName = 'ManagePayees';

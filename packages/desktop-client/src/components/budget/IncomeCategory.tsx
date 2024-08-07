@@ -21,13 +21,13 @@ type IncomeCategoryProps = {
   editingCell: { id: string; cell: string } | null;
   MonthComponent: ComponentProps<typeof RenderMonths>['component'];
   onEditName: ComponentProps<typeof SidebarCategory>['onEditName'];
-  onEditMonth?: (id: string, monthIndex: number) => void;
+  onEditMonth?: (id: string, month: string) => void;
   onSave: ComponentProps<typeof SidebarCategory>['onSave'];
   onDelete: ComponentProps<typeof SidebarCategory>['onDelete'];
   onDragChange: OnDragChangeCallback<CategoryEntity>;
-  onBudgetAction: (idx: number, action: string, arg: unknown) => void;
+  onBudgetAction: (month: string, action: string, arg: unknown) => void;
   onReorder: OnDropCallback;
-  onShowActivity: (name: string, id: string, idx: number) => void;
+  onShowActivity: (id: string, month: string) => void;
 };
 
 export function IncomeCategory({
@@ -58,7 +58,13 @@ export function IncomeCategory({
   });
 
   return (
-    <Row innerRef={dropRef} collapsed={true}>
+    <Row
+      innerRef={dropRef}
+      collapsed={true}
+      style={{
+        opacity: cat.hidden ? 0.5 : undefined,
+      }}
+    >
       <DropHighlight pos={dropPos} offset={{ top: 1 }} />
 
       <SidebarCategory
@@ -76,7 +82,7 @@ export function IncomeCategory({
       />
       <RenderMonths
         component={MonthComponent}
-        editingIndex={
+        editingMonth={
           editingCell && editingCell.id === cat.id && editingCell.cell
         }
         args={{

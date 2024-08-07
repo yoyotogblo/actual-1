@@ -6,7 +6,7 @@ import { type ScheduleEntity } from 'loot-core/src/types/models';
 
 import { useActions } from '../../hooks/useActions';
 import { theme } from '../../style';
-import { Button } from '../common/Button';
+import { Button } from '../common/Button2';
 import { Search } from '../common/Search';
 import { View } from '../common/View';
 import { Page } from '../Page';
@@ -64,7 +64,7 @@ export function Schedules() {
   }
 
   return (
-    <Page title="Schedules">
+    <Page header="Schedules">
       <View
         style={{
           flexDirection: 'row',
@@ -105,8 +105,8 @@ export function Schedules() {
           flexShrink: 0,
         }}
       >
-        <Button onClick={onDiscover}>Find schedules</Button>
-        <Button type="primary" onClick={onAdd}>
+        <Button onPress={onDiscover}>Find schedules</Button>
+        <Button variant="primary" onPress={onAdd}>
           Add new schedule
         </Button>
       </View>

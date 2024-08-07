@@ -3,6 +3,7 @@ import { getClock } from '@actual-app/crdt';
 
 import * as connection from '../platform/server/connection';
 import {
+  getBankSyncError,
   getDownloadError,
   getSyncError,
   getTestKeyError,
@@ -21,12 +22,15 @@ import { ServerHandlers } from '../types/server-handlers';
 import { addTransactions } from './accounts/sync';
 import {
   accountModel,
+  budgetModel,
   categoryModel,
   categoryGroupModel,
   payeeModel,
+  remoteFileModel,
 } from './api-models';
 import { runQuery as aqlQuery } from './aql';
 import * as cloudStorage from './cloud-storage';
+import { type RemoteFile } from './cloud-storage';
 import * as db from './db';
 import { APIError } from './errors';
 import { runMutator } from './mutators';
@@ -164,16 +168,12 @@ handlers['api/download-budget'] = async function ({ syncId, password }) {
     await handlers['close-budget']();
   }
 
-  const localBudget = (await handlers['get-budgets']()).find(
-    b => b.groupId === syncId,
-  );
-  if (localBudget) {
-    await handlers['load-budget']({ id: localBudget.id });
-    const result = await handlers['sync-budget']();
-    if (result.error) {
-      throw new Error(getSyncError(result.error, localBudget.id));
-    }
-  } else {
+  const budgets = await handlers['get-budgets']();
+  const localBudget = budgets.find(b => b.groupId === syncId);
+  let remoteBudget: RemoteFile;
+
+  // Load a remote file if we could not find the file locally
+  if (!localBudget) {
     const files = await handlers['get-remote-files']();
     if (!files) {
       throw new Error('Could not get remote files');
@@ -184,28 +184,57 @@ handlers['api/download-budget'] = async function ({ syncId, password }) {
         `Budget “${syncId}” not found. Check the sync id of your budget in the Advanced section of the settings page.`,
       );
     }
-    if (file.encryptKeyId && !password) {
+
+    remoteBudget = file;
+  }
+
+  const activeFile = remoteBudget ? remoteBudget : localBudget;
+
+  // Set the e2e encryption keys
+  if (activeFile.encryptKeyId) {
+    if (!password) {
       throw new Error(
-        `File ${file.name} is encrypted. Please provide a password.`,
+        `File ${activeFile.name} is encrypted. Please provide a password.`,
       );
     }
-    if (password) {
-      const result = await handlers['key-test']({
-        fileId: file.fileId,
-        password,
-      });
-      if (result.error) {
-        throw new Error(getTestKeyError(result.error));
-      }
-    }
 
-    const result = await handlers['download-budget']({ fileId: file.fileId });
+    const result = await handlers['key-test']({
+      fileId: remoteBudget ? remoteBudget.fileId : localBudget.cloudFileId,
+      password,
+    });
     if (result.error) {
-      console.log('Full error details', result.error);
-      throw new Error(getDownloadError(result.error));
+      throw new Error(getTestKeyError(result.error));
     }
-    await handlers['load-budget']({ id: result.id });
   }
+
+  // Sync the local budget file
+  if (localBudget) {
+    await handlers['load-budget']({ id: localBudget.id });
+    const result = await handlers['sync-budget']();
+    if (result.error) {
+      throw new Error(getSyncError(result.error, localBudget.id));
+    }
+    return;
+  }
+
+  // Download the remote file (no need to perform a sync as the file will already be up-to-date)
+  const result = await handlers['download-budget']({
+    fileId: remoteBudget.fileId,
+  });
+  if (result.error) {
+    console.log('Full error details', result.error);
+    throw new Error(getDownloadError(result.error));
+  }
+  await handlers['load-budget']({ id: result.id });
+};
+
+handlers['api/get-budgets'] = async function () {
+  const budgets = await handlers['get-budgets']();
+  const files = (await handlers['get-remote-files']()) || [];
+  return [
+    ...budgets.map(file => budgetModel.toExternal(file)),
+    ...files.map(file => remoteFileModel.toExternal(file)).filter(file => file),
+  ];
 };
 
 handlers['api/sync'] = async function () {
@@ -213,6 +242,17 @@ handlers['api/sync'] = async function () {
   const result = await handlers['sync-budget']();
   if (result.error) {
     throw new Error(getSyncError(result.error, id));
+  }
+};
+
+handlers['api/bank-sync'] = async function (args) {
+  const { errors } = await handlers['accounts-bank-sync']({
+    id: args?.accountId,
+  });
+
+  const [firstError] = errors;
+  if (firstError) {
+    throw new Error(getBankSyncError(firstError));
   }
 };
 
@@ -366,6 +406,27 @@ handlers['api/budget-set-carryover'] = withMutation(async function ({
   });
 });
 
+handlers['api/budget-hold-for-next-month'] = withMutation(async function ({
+  month,
+  amount,
+}) {
+  checkFileOpen();
+  await validateMonth(month);
+  if (amount <= 0) {
+    throw APIError('Amount to hold needs to be greater than 0');
+  }
+  return handlers['budget/hold-for-next-month']({
+    month,
+    amount,
+  });
+});
+
+handlers['api/budget-reset-hold'] = withMutation(async function ({ month }) {
+  checkFileOpen();
+  await validateMonth(month);
+  return handlers['budget/reset-hold']({ month });
+});
+
 handlers['api/transactions-export'] = async function ({
   transactions,
   categoryGroups,
@@ -382,9 +443,14 @@ handlers['api/transactions-export'] = async function ({
 handlers['api/transactions-import'] = withMutation(async function ({
   accountId,
   transactions,
+  isPreview = false,
 }) {
   checkFileOpen();
-  return handlers['transactions-import']({ accountId, transactions });
+  return handlers['transactions-import']({
+    accountId,
+    transactions,
+    isPreview,
+  });
 });
 
 handlers['api/transactions-add'] = withMutation(async function ({
@@ -504,6 +570,14 @@ handlers['api/account-delete'] = withMutation(async function ({ id }) {
   return handlers['account-close']({ id, forced: true });
 });
 
+handlers['api/account-balance'] = withMutation(async function ({
+  id,
+  cutoff = new Date(),
+}) {
+  checkFileOpen();
+  return handlers['account-balance']({ id, cutoff });
+});
+
 handlers['api/categories-get'] = async function ({
   grouped,
 }: { grouped? } = {}) {
@@ -512,6 +586,11 @@ handlers['api/categories-get'] = async function ({
   return grouped
     ? result.grouped.map(categoryGroupModel.toExternal)
     : result.list.map(categoryModel.toExternal);
+};
+
+handlers['api/category-groups-get'] = async function () {
+  checkFileOpen();
+  return handlers['get-category-groups']();
 };
 
 handlers['api/category-group-create'] = withMutation(async function ({
@@ -572,6 +651,12 @@ handlers['api/category-delete'] = withMutation(async function ({
   });
 });
 
+handlers['api/common-payees-get'] = async function () {
+  checkFileOpen();
+  const payees = await handlers['common-payees-get']();
+  return payees.map(payeeModel.toExternal);
+};
+
 handlers['api/payees-get'] = async function () {
   checkFileOpen();
   const payees = await handlers['payees-get']();
@@ -593,6 +678,51 @@ handlers['api/payee-update'] = withMutation(async function ({ id, fields }) {
 handlers['api/payee-delete'] = withMutation(async function ({ id }) {
   checkFileOpen();
   return handlers['payees-batch-change']({ deleted: [{ id }] });
+});
+
+handlers['api/payees-merge'] = withMutation(async function ({
+  targetId,
+  mergeIds,
+}) {
+  checkFileOpen();
+  return handlers['payees-merge']({ targetId, mergeIds });
+});
+
+handlers['api/rules-get'] = async function () {
+  checkFileOpen();
+  return handlers['rules-get']();
+};
+
+handlers['api/payee-rules-get'] = async function ({ id }) {
+  checkFileOpen();
+  return handlers['payees-get-rules']({ id });
+};
+
+handlers['api/rule-create'] = withMutation(async function ({ rule }) {
+  checkFileOpen();
+  const addedRule = await handlers['rule-add'](rule);
+
+  if ('error' in addedRule) {
+    throw APIError('Failed creating a new rule', addedRule.error);
+  }
+
+  return addedRule;
+});
+
+handlers['api/rule-update'] = withMutation(async function ({ rule }) {
+  checkFileOpen();
+  const updatedRule = handlers['rule-update'](rule);
+
+  if ('error' in updatedRule) {
+    throw APIError('Failed updating the rule', updatedRule.error);
+  }
+
+  return updatedRule;
+});
+
+handlers['api/rule-delete'] = withMutation(async function ({ id }) {
+  checkFileOpen();
+  return handlers['rule-delete'](id);
 });
 
 export function installAPI(serverHandlers: ServerHandlers) {

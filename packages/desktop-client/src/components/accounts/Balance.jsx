@@ -1,5 +1,8 @@
-import React from 'react';
+import React, { useRef } from 'react';
 
+import { useHover } from 'usehooks-ts';
+
+import { isPreviewId } from 'loot-core/shared/transactions';
 import { useCachedSchedules } from 'loot-core/src/client/data-hooks/schedules';
 import { q } from 'loot-core/src/shared/query';
 import { getScheduledAmount } from 'loot-core/src/shared/schedules';
@@ -7,14 +10,13 @@ import { getScheduledAmount } from 'loot-core/src/shared/schedules';
 import { useSelectedItems } from '../../hooks/useSelected';
 import { SvgArrowButtonRight1 } from '../../icons/v2';
 import { theme } from '../../style';
-import { Button } from '../common/Button';
+import { Button } from '../common/Button2';
 import { Text } from '../common/Text';
 import { View } from '../common/View';
 import { PrivacyFilter } from '../PrivacyFilter';
 import { CellValue } from '../spreadsheet/CellValue';
 import { useFormat } from '../spreadsheet/useFormat';
 import { useSheetValue } from '../spreadsheet/useSheetValue';
-import { isPreviewId } from '../transactions/TransactionsTable';
 
 function DetailedBalance({ name, balance, isExactBalance = true }) {
   const format = useFormat();
@@ -104,6 +106,16 @@ function SelectedBalance({ selectedItems, account }) {
   );
 }
 
+function FilteredBalance({ filteredAmount }) {
+  return (
+    <DetailedBalance
+      name="Filtered balance:"
+      balance={filteredAmount || 0}
+      isExactBalance={true}
+    />
+  );
+}
+
 function MoreBalances({ balanceQuery }) {
   const cleared = useSheetValue({
     name: balanceQuery.name + '-cleared',
@@ -127,8 +139,12 @@ export function Balances({
   showExtraBalances,
   onToggleExtraBalances,
   account,
+  isFiltered,
+  filteredAmount,
 }) {
   const selectedItems = useSelectedItems();
+  const buttonRef = useRef(null);
+  const isButtonHovered = useHover(buttonRef);
 
   return (
     <View
@@ -140,14 +156,13 @@ export function Balances({
       }}
     >
       <Button
+        ref={buttonRef}
         data-testid="account-balance"
-        type="bare"
-        onClick={onToggleExtraBalances}
+        variant="bare"
+        onPress={onToggleExtraBalances}
         style={{
-          '& svg': {
-            opacity: selectedItems.size > 0 || showExtraBalances ? 1 : 0,
-          },
-          '&:hover svg': { opacity: 1 },
+          paddingTop: 1,
+          paddingBottom: 1,
         }}
       >
         <CellValue
@@ -174,6 +189,10 @@ export function Balances({
             marginLeft: 10,
             color: theme.pillText,
             transform: showExtraBalances ? 'rotateZ(180deg)' : 'rotateZ(0)',
+            opacity:
+              isButtonHovered || selectedItems.size > 0 || showExtraBalances
+                ? 1
+                : 0,
           }}
         />
       </Button>
@@ -182,6 +201,7 @@ export function Balances({
       {selectedItems.size > 0 && (
         <SelectedBalance selectedItems={selectedItems} account={account} />
       )}
+      {isFiltered && <FilteredBalance filteredAmount={filteredAmount} />}
     </View>
   );
 }

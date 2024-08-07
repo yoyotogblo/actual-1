@@ -5,6 +5,7 @@ import userEvent from '@testing-library/user-event';
 import { format as formatDate, parse as parseDate } from 'date-fns';
 import { v4 as uuidv4 } from 'uuid';
 
+import { SpreadsheetProvider } from 'loot-core/src/client/SpreadsheetProvider';
 import {
   generateTransaction,
   generateAccount,
@@ -21,17 +22,18 @@ import {
 import { integerToCurrency } from 'loot-core/src/shared/util';
 
 import { SelectedProviderWithItems } from '../../hooks/useSelected';
+import { SplitsExpandedProvider } from '../../hooks/useSplitsExpanded';
 import { ResponsiveProvider } from '../../ResponsiveProvider';
 
-import { SplitsExpandedProvider, TransactionTable } from './TransactionsTable';
+import { TransactionTable } from './TransactionsTable';
 
 vi.mock('loot-core/src/platform/client/fetch');
 vi.mock('../../hooks/useFeatureFlag', () => vi.fn().mockReturnValue(false));
 
 const accounts = [generateAccount('Bank of America')];
 const payees = [
-  { id: 'payed-to', name: 'Payed To' },
-  { id: 'guy', name: 'This guy on the side of the road' },
+  { id: 'payed-to', favorite: true, name: 'Payed To' },
+  { id: 'guy', favorite: false, name: 'This guy on the side of the road' },
 ];
 const categoryGroups = generateCategoryGroups([
   {
@@ -117,26 +119,29 @@ function LiveTransactionTable(props) {
   return (
     <TestProvider>
       <ResponsiveProvider>
-        <SelectedProviderWithItems
-          name="transactions"
-          items={transactions}
-          fetchAllIds={() => transactions.map(t => t.id)}
-        >
-          <SplitsExpandedProvider>
-            <TransactionTable
-              {...props}
-              transactions={transactions}
-              loadMoreTransactions={() => {}}
-              payees={payees}
-              addNotification={n => console.log(n)}
-              onSave={onSave}
-              onSplit={onSplit}
-              onAdd={onAdd}
-              onAddSplit={onAddSplit}
-              onCreatePayee={onCreatePayee}
-            />
-          </SplitsExpandedProvider>
-        </SelectedProviderWithItems>
+        <SpreadsheetProvider>
+          <SelectedProviderWithItems
+            name="transactions"
+            items={transactions}
+            fetchAllIds={() => transactions.map(t => t.id)}
+          >
+            <SplitsExpandedProvider>
+              <TransactionTable
+                {...props}
+                transactions={transactions}
+                loadMoreTransactions={() => {}}
+                commonPayees={[]}
+                payees={payees}
+                addNotification={n => console.log(n)}
+                onSave={onSave}
+                onSplit={onSplit}
+                onAdd={onAdd}
+                onAddSplit={onAddSplit}
+                onCreatePayee={onCreatePayee}
+              />
+            </SplitsExpandedProvider>
+          </SelectedProviderWithItems>
+        </SpreadsheetProvider>
       </ResponsiveProvider>
     </TestProvider>
   );
@@ -154,6 +159,10 @@ function initBasicServer() {
           throw new Error(`queried unknown table: ${query.table}`);
       }
     },
+    getCell: () => ({
+      value: 129_87,
+    }),
+    'get-categories': () => ({ grouped: categoryGroups, list: categories }),
   });
 }
 
@@ -432,10 +441,12 @@ describe('Transactions', () => {
 
     const categories = categoryGroups.flatMap(group => group.categories);
     const input = await editField(container, 'category', 2);
-    const tooltip = container.querySelector('[data-testid="autocomplete"]');
-    expect(tooltip).toBeTruthy();
     expect(
-      [...tooltip.querySelectorAll('[data-testid*="category-item"]')].length,
+      [
+        ...screen
+          .getByTestId('autocomplete')
+          .querySelectorAll('[data-testid*="category-item"]'),
+      ].length,
     ).toBe(categoryGroups.length + categories.length);
 
     await userEvent.clear(input);
@@ -443,36 +454,43 @@ describe('Transactions', () => {
 
     // Make sure the list is filtered, the right items exist, and the
     // first item is highlighted
-    let items = tooltip.querySelectorAll('[data-testid*="category-item"]');
+    let items = screen
+      .getByTestId('autocomplete')
+      .querySelectorAll('[data-testid*="category-item"]');
     expect(items.length).toBe(2);
     expect(items[0].textContent).toBe('Usual Expenses');
-    expect(items[1].textContent).toBe('General');
+    expect(items[1].textContent).toBe('General 129.87');
     expect(items[1].dataset['highlighted']).toBeDefined();
 
     // It should not allow filtering on group names
     await userEvent.clear(input);
     await userEvent.type(input, 'Usual Expenses');
 
-    items = tooltip.querySelectorAll('[data-testid$="category-item"]');
-    expect(items.length).toBe(0);
+    items = screen
+      .getByTestId('autocomplete')
+      .querySelectorAll('[data-testid$="category-item"]');
+    expect(items.length).toBe(3);
   });
 
   test('dropdown selects an item with keyboard', async () => {
     const { container, getTransactions } = renderTransactions();
 
     const input = await editField(container, 'category', 2);
-    const tooltip = container.querySelector('[data-testid="autocomplete"]');
 
     // No item should be highlighted
-    let highlighted = tooltip.querySelector('[data-highlighted]');
+    let highlighted = screen
+      .getByTestId('autocomplete')
+      .querySelector('[data-highlighted]');
     expect(highlighted).toBeNull();
 
     await userEvent.keyboard('[ArrowDown][ArrowDown][ArrowDown][ArrowDown]');
 
     // The right item should be highlighted
-    highlighted = tooltip.querySelector('[data-highlighted]');
+    highlighted = screen
+      .getByTestId('autocomplete')
+      .querySelector('[data-highlighted]');
     expect(highlighted).not.toBeNull();
-    expect(highlighted.textContent).toBe('General');
+    expect(highlighted.textContent).toBe('General 129.87');
 
     expect(getTransactions()[2].category).toBe(
       categories.find(category => category.name === 'Food').id,
@@ -489,7 +507,7 @@ describe('Transactions', () => {
     // The category field should still be editing
     expectToBeEditingField(container, 'category', 2);
     // No dropdown should be open
-    expect(container.querySelector('[data-testid="autocomplete"]')).toBe(null);
+    expect(screen.queryByTestId('autocomplete')).toBe(null);
 
     // Pressing enter should now move down
     await userEvent.type(input, '[Enter]');
@@ -501,20 +519,24 @@ describe('Transactions', () => {
 
     await editField(container, 'category', 2);
 
-    let tooltip = container.querySelector('[data-testid="autocomplete"]');
-
     // Make sure none of the items are highlighted
-    const items = tooltip.querySelectorAll('[data-testid$="category-item"]');
-    let highlighted = tooltip.querySelector('[data-highlighted]');
+    const items = screen
+      .getByTestId('autocomplete')
+      .querySelectorAll('[data-testid$="category-item"]');
+    let highlighted = screen
+      .getByTestId('autocomplete')
+      .querySelector('[data-highlighted]');
     expect(highlighted).toBeNull();
 
     // Hover over an item
     await userEvent.hover(items[2]);
 
     // Make sure the expected category is highlighted
-    highlighted = tooltip.querySelector('[data-highlighted]');
+    highlighted = screen
+      .getByTestId('autocomplete')
+      .querySelector('[data-highlighted]');
     expect(highlighted).not.toBeNull();
-    expect(highlighted.textContent).toBe('General');
+    expect(highlighted.textContent).toBe('General 129.87');
 
     // Click the item and check the before/after values
     expect(getTransactions()[2].category).toBe(
@@ -527,8 +549,7 @@ describe('Transactions', () => {
     );
 
     // It should still be editing the category
-    tooltip = container.querySelector('[data-testid="autocomplete"]');
-    expect(tooltip).toBe(null);
+    expect(screen.queryByTestId('autocomplete')).toBe(null);
     expectToBeEditingField(container, 'category', 2);
   });
 
@@ -537,16 +558,19 @@ describe('Transactions', () => {
 
     const input = await editField(container, 'category', 2);
     const oldCategory = getTransactions()[2].category;
-    const tooltip = container.querySelector('[data-testid="autocomplete"]');
 
-    const items = tooltip.querySelectorAll('[data-testid$="category-item"]');
+    const items = screen
+      .getByTestId('autocomplete')
+      .querySelectorAll('[data-testid$="category-item"]');
 
     // Hover over a few of the items to highlight them
     await userEvent.hover(items[2]);
     await userEvent.hover(items[3]);
 
     // Make sure one of them is highlighted
-    const highlighted = tooltip.querySelectorAll('[data-highlighted]');
+    const highlighted = screen
+      .getByTestId('autocomplete')
+      .querySelectorAll('[data-highlighted]');
     expect(highlighted).toHaveLength(1);
 
     // Navigate away from the field with the keyboard
@@ -610,8 +634,7 @@ describe('Transactions', () => {
     expect(input.value).toBe(oldValue);
 
     // The tooltip be closed
-    const tooltip = container.querySelector('[data-testid="autocomplete"]');
-    expect(tooltip).toBeNull();
+    expect(screen.queryByTestId('autocomplete')).toBeNull();
   });
 
   test('adding a new transaction works', async () => {
@@ -659,10 +682,7 @@ describe('Transactions', () => {
     await userEvent.type(input, '55.00');
 
     await editNewField(container, 'category');
-    const splitButton = document.body.querySelector(
-      '[data-testid="autocomplete"] [data-testid="split-transaction-button"]',
-    );
-    await userEvent.click(splitButton);
+    await userEvent.click(screen.getByTestId('split-transaction-button'));
     await waitForAutocomplete();
     await waitForAutocomplete();
     await waitForAutocomplete();
@@ -781,10 +801,6 @@ describe('Transactions', () => {
     }
 
     let input = await editField(container, 'category', 0);
-    const tooltip = container.querySelector('[data-testid="autocomplete"]');
-    const splitButton = tooltip.querySelector(
-      '[data-testid="split-transaction-button"]',
-    );
 
     // Make it clear that we are expected a negative transaction
     expect(getTransactions()[0].amount).toBe(-2777);
@@ -792,7 +808,7 @@ describe('Transactions', () => {
 
     // Make sure splitting a transaction works
     expect(getTransactions().length).toBe(5);
-    await userEvent.click(splitButton);
+    await userEvent.click(screen.getByTestId('split-transaction-button'));
     await waitForAutocomplete();
 
     expect(getTransactions().length).toBe(6);
@@ -801,9 +817,7 @@ describe('Transactions', () => {
     expect(getTransactions()[1].amount).toBe(0);
     expectErrorToExist(getTransactions().slice(0, 2));
 
-    const toolbars = container.querySelectorAll(
-      '[data-testid="transaction-error"]',
-    );
+    const toolbars = screen.queryAllByTestId('transaction-error');
     // Make sure the toolbar has appeared
     expect(toolbars.length).toBe(1);
     const toolbar = toolbars[0];
@@ -853,6 +867,7 @@ describe('Transactions', () => {
       {
         account: accounts[0].id,
         amount: -1000,
+        category: null,
         cleared: false,
         date: '2017-01-01',
         error: null,
@@ -866,6 +881,7 @@ describe('Transactions', () => {
       {
         account: accounts[0].id,
         amount: -1777,
+        category: null,
         cleared: false,
         date: '2017-01-01',
         error: null,
@@ -900,21 +916,15 @@ describe('Transactions', () => {
     const { container, getTransactions } = renderTransactions();
 
     let input = await editField(container, 'category', 0);
-    const tooltip = container.querySelector('[data-testid="autocomplete"]');
-    const splitButton = tooltip.querySelector(
-      '[data-testid="split-transaction-button"',
-    );
 
     // The first transaction should always be a negative amount
     expect(getTransactions()[0].amount).toBe(-2777);
 
     // Add two new split transactions
     expect(getTransactions().length).toBe(5);
-    await userEvent.click(splitButton);
+    await userEvent.click(screen.getByTestId('split-transaction-button'));
     await waitForAutocomplete();
-    await userEvent.click(
-      container.querySelector('[data-testid="add-split-button"]'),
-    );
+    await userEvent.click(screen.getByTestId('add-split-button'));
     expect(getTransactions().length).toBe(7);
 
     // The debit field should show the zeros

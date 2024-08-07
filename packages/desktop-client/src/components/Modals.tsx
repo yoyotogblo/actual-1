@@ -1,116 +1,125 @@
 // @ts-strict-ignore
 import React, { useEffect } from 'react';
-import { useSelector } from 'react-redux';
+import { useDispatch } from 'react-redux';
 import { useLocation } from 'react-router-dom';
 
+import { closeModal } from 'loot-core/client/actions';
+import { type PopModalAction } from 'loot-core/src/client/state-types/modals';
 import { send } from 'loot-core/src/platform/client/fetch';
+import * as monthUtils from 'loot-core/src/shared/months';
 
-import { useActions } from '../hooks/useActions';
-import { useCategories } from '../hooks/useCategories';
+import { useModalState } from '../hooks/useModalState';
 import { useSyncServerStatus } from '../hooks/useSyncServerStatus';
-import { type CommonModalProps } from '../types/modals';
 
-import { CategoryGroupMenu } from './modals/CategoryGroupMenu';
-import { CategoryMenu } from './modals/CategoryMenu';
-import { CloseAccount } from './modals/CloseAccount';
+import { ModalTitle, ModalHeader } from './common/Modal2';
+import { AccountAutocompleteModal } from './modals/AccountAutocompleteModal';
+import { AccountMenuModal } from './modals/AccountMenuModal';
+import { BudgetListModal } from './modals/BudgetListModal';
+import { BudgetPageMenuModal } from './modals/BudgetPageMenuModal';
+import { CategoryAutocompleteModal } from './modals/CategoryAutocompleteModal';
+import { CategoryGroupMenuModal } from './modals/CategoryGroupMenuModal';
+import { CategoryMenuModal } from './modals/CategoryMenuModal';
+import { CloseAccountModal } from './modals/CloseAccountModal';
 import { ConfirmCategoryDelete } from './modals/ConfirmCategoryDelete';
+import { ConfirmTransactionDelete } from './modals/ConfirmTransactionDelete';
 import { ConfirmTransactionEdit } from './modals/ConfirmTransactionEdit';
-import { CreateAccount } from './modals/CreateAccount';
-import { CreateEncryptionKey } from './modals/CreateEncryptionKey';
-import { CreateLocalAccount } from './modals/CreateLocalAccount';
+import { ConfirmUnlinkAccount } from './modals/ConfirmUnlinkAccount';
+import { CoverModal } from './modals/CoverModal';
+import { CreateAccountModal } from './modals/CreateAccountModal';
+import { CreateEncryptionKeyModal } from './modals/CreateEncryptionKeyModal';
+import { CreateLocalAccountModal } from './modals/CreateLocalAccountModal';
 import { EditField } from './modals/EditField';
 import { EditRule } from './modals/EditRule';
-import { FixEncryptionKey } from './modals/FixEncryptionKey';
+import { FixEncryptionKeyModal } from './modals/FixEncryptionKeyModal';
 import { GoCardlessExternalMsg } from './modals/GoCardlessExternalMsg';
 import { GoCardlessInitialise } from './modals/GoCardlessInitialise';
+import { HoldBufferModal } from './modals/HoldBufferModal';
 import { ImportTransactions } from './modals/ImportTransactions';
+import { KeyboardShortcutModal } from './modals/KeyboardShortcutModal';
 import { LoadBackup } from './modals/LoadBackup';
 import { ManageRulesModal } from './modals/ManageRulesModal';
 import { MergeUnusedPayees } from './modals/MergeUnusedPayees';
-import { Notes } from './modals/Notes';
-import { PlaidExternalMsg } from './modals/PlaidExternalMsg';
-import { ReportBudgetSummary } from './modals/ReportBudgetSummary';
-import { RolloverBudgetSummary } from './modals/RolloverBudgetSummary';
+import { NotesModal } from './modals/NotesModal';
+import { PayeeAutocompleteModal } from './modals/PayeeAutocompleteModal';
+import { ReportBalanceMenuModal } from './modals/ReportBalanceMenuModal';
+import { ReportBudgetMenuModal } from './modals/ReportBudgetMenuModal';
+import { ReportBudgetMonthMenuModal } from './modals/ReportBudgetMonthMenuModal';
+import { ReportBudgetSummaryModal } from './modals/ReportBudgetSummaryModal';
+import { RolloverBalanceMenuModal } from './modals/RolloverBalanceMenuModal';
+import { RolloverBudgetMenuModal } from './modals/RolloverBudgetMenuModal';
+import { RolloverBudgetMonthMenuModal } from './modals/RolloverBudgetMonthMenuModal';
+import { RolloverBudgetSummaryModal } from './modals/RolloverBudgetSummaryModal';
+import { RolloverToBudgetMenuModal } from './modals/RolloverToBudgetMenuModal';
+import { ScheduledTransactionMenuModal } from './modals/ScheduledTransactionMenuModal';
 import { SelectLinkedAccounts } from './modals/SelectLinkedAccounts';
 import { SimpleFinInitialise } from './modals/SimpleFinInitialise';
-import { SingleInput } from './modals/SingleInput';
-import { SwitchBudgetType } from './modals/SwitchBudgetType';
+import { SingleInputModal } from './modals/SingleInputModal';
+import { TransferModal } from './modals/TransferModal';
 import { DiscoverSchedules } from './schedules/DiscoverSchedules';
 import { PostsOfflineNotification } from './schedules/PostsOfflineNotification';
 import { ScheduleDetails } from './schedules/ScheduleDetails';
 import { ScheduleLink } from './schedules/ScheduleLink';
+import { NamespaceContext } from './spreadsheet/NamespaceContext';
+
+export type CommonModalProps = {
+  onClose: () => PopModalAction;
+  onBack: () => PopModalAction;
+  showBack: boolean;
+  isCurrent: boolean;
+  isHidden: boolean;
+  stackIndex: number;
+};
 
 export function Modals() {
-  const modalStack = useSelector(state => state.modals.modalStack);
-  const isHidden = useSelector(state => state.modals.isHidden);
-  const accounts = useSelector(state => state.queries.accounts);
-  const { grouped: categoryGroups, list: categories } = useCategories();
-  const budgetId = useSelector(
-    state => state.prefs.local && state.prefs.local.id,
-  );
-  const actions = useActions();
   const location = useLocation();
+  const dispatch = useDispatch();
+  const { modalStack } = useModalState();
 
   useEffect(() => {
     if (modalStack.length > 0) {
-      actions.closeModal();
+      dispatch(closeModal());
     }
   }, [location]);
 
   const syncServerStatus = useSyncServerStatus();
 
   const modals = modalStack
-    .map(({ name, options }, idx) => {
-      const modalProps: CommonModalProps = {
-        onClose: actions.popModal,
-        onBack: actions.popModal,
-        showBack: idx > 0,
-        isCurrent: idx === modalStack.length - 1,
-        isHidden,
-        stackIndex: idx,
-      };
-
+    .map(({ name, options }) => {
       switch (name) {
+        case 'keyboard-shortcuts':
+          return <KeyboardShortcutModal />;
+
         case 'import-transactions':
-          return (
-            <ImportTransactions modalProps={modalProps} options={options} />
-          );
+          return <ImportTransactions key={name} options={options} />;
 
         case 'add-account':
           return (
-            <CreateAccount
-              modalProps={modalProps}
+            <CreateAccountModal
+              key={name}
               syncServerStatus={syncServerStatus}
               upgradingAccountId={options?.upgradingAccountId}
             />
           );
 
         case 'add-local-account':
-          return (
-            <CreateLocalAccount modalProps={modalProps} actions={actions} />
-          );
+          return <CreateLocalAccountModal key={name} />;
 
         case 'close-account':
           return (
-            <CloseAccount
-              modalProps={modalProps}
+            <CloseAccountModal
+              key={name}
               account={options.account}
               balance={options.balance}
               canDelete={options.canDelete}
-              accounts={accounts.filter(acct => acct.closed === 0)}
-              categoryGroups={categoryGroups}
-              actions={actions}
             />
           );
 
         case 'select-linked-accounts':
           return (
             <SelectLinkedAccounts
-              modalProps={modalProps}
+              key={name}
               externalAccounts={options.accounts}
               requisitionId={options.requisitionId}
-              localAccounts={accounts.filter(acct => acct.closed === 0)}
-              actions={actions}
               syncSource={options.syncSource}
             />
           );
@@ -118,52 +127,57 @@ export function Modals() {
         case 'confirm-category-delete':
           return (
             <ConfirmCategoryDelete
-              modalProps={modalProps}
-              category={
-                'category' in options &&
-                categories.find(c => c.id === options.category)
-              }
-              group={
-                'group' in options &&
-                categoryGroups.find(g => g.id === options.group)
-              }
-              categoryGroups={categoryGroups}
+              key={name}
+              category={options.category}
+              group={options.group}
               onDelete={options.onDelete}
+            />
+          );
+
+        case 'confirm-unlink-account':
+          return (
+            <ConfirmUnlinkAccount
+              key={name}
+              accountName={options.accountName}
+              onUnlink={options.onUnlink}
             />
           );
 
         case 'confirm-transaction-edit':
           return (
             <ConfirmTransactionEdit
-              modalProps={modalProps}
+              key={name}
+              onCancel={options.onCancel}
               onConfirm={options.onConfirm}
               confirmReason={options.confirmReason}
+            />
+          );
+
+        case 'confirm-transaction-delete':
+          return (
+            <ConfirmTransactionDelete
+              key={name}
+              onConfirm={options.onConfirm}
             />
           );
 
         case 'load-backup':
           return (
             <LoadBackup
+              key={name}
               watchUpdates
-              budgetId={budgetId}
-              modalProps={modalProps}
-              actions={actions}
+              budgetId={options.budgetId}
               backupDisabled={false}
             />
           );
 
         case 'manage-rules':
-          return (
-            <ManageRulesModal
-              modalProps={modalProps}
-              payeeId={options?.payeeId}
-            />
-          );
+          return <ManageRulesModal key={name} payeeId={options?.payeeId} />;
 
         case 'edit-rule':
           return (
             <EditRule
-              modalProps={modalProps}
+              key={name}
               defaultRule={options.rule}
               onSave={options.onSave}
             />
@@ -172,45 +186,26 @@ export function Modals() {
         case 'merge-unused-payees':
           return (
             <MergeUnusedPayees
-              modalProps={modalProps}
+              key={name}
               payeeIds={options.payeeIds}
               targetPayeeId={options.targetPayeeId}
             />
           );
 
-        case 'plaid-external-msg':
-          return (
-            <PlaidExternalMsg
-              modalProps={modalProps}
-              onMoveExternal={options.onMoveExternal}
-              onClose={() => {
-                options.onClose?.();
-                send('poll-web-token-stop');
-              }}
-              onSuccess={options.onSuccess}
-            />
-          );
-
         case 'gocardless-init':
           return (
-            <GoCardlessInitialise
-              modalProps={modalProps}
-              onSuccess={options.onSuccess}
-            />
+            <GoCardlessInitialise key={name} onSuccess={options.onSuccess} />
           );
 
         case 'simplefin-init':
           return (
-            <SimpleFinInitialise
-              modalProps={modalProps}
-              onSuccess={options.onSuccess}
-            />
+            <SimpleFinInitialise key={name} onSuccess={options.onSuccess} />
           );
 
         case 'gocardless-external-msg':
           return (
             <GoCardlessExternalMsg
-              modalProps={modalProps}
+              key={name}
               onMoveExternal={options.onMoveExternal}
               onClose={() => {
                 options.onClose?.();
@@ -221,41 +216,72 @@ export function Modals() {
           );
 
         case 'create-encryption-key':
-          return (
-            <CreateEncryptionKey
-              key={name}
-              modalProps={modalProps}
-              actions={actions}
-              options={options}
-            />
-          );
+          return <CreateEncryptionKeyModal key={name} options={options} />;
 
         case 'fix-encryption-key':
-          return (
-            <FixEncryptionKey
-              key={name}
-              modalProps={modalProps}
-              actions={actions}
-              options={options}
-            />
-          );
+          return <FixEncryptionKeyModal key={name} options={options} />;
 
         case 'edit-field':
           return (
             <EditField
               key={name}
-              modalProps={modalProps}
               name={options.name}
               onSubmit={options.onSubmit}
               onClose={options.onClose}
             />
           );
 
+        case 'category-autocomplete':
+          return (
+            <CategoryAutocompleteModal
+              key={name}
+              autocompleteProps={{
+                value: null,
+                onSelect: options.onSelect,
+                categoryGroups: options.categoryGroups,
+                showHiddenCategories: options.showHiddenCategories,
+              }}
+              month={options.month}
+              onClose={options.onClose}
+            />
+          );
+
+        case 'account-autocomplete':
+          return (
+            <AccountAutocompleteModal
+              key={name}
+              autocompleteProps={{
+                value: null,
+                onSelect: options.onSelect,
+                includeClosedAccounts: options.includeClosedAccounts,
+              }}
+              onClose={options.onClose}
+            />
+          );
+
+        case 'payee-autocomplete':
+          return (
+            <PayeeAutocompleteModal
+              key={name}
+              autocompleteProps={{
+                value: null,
+                onSelect: options.onSelect,
+              }}
+              onClose={options.onClose}
+            />
+          );
+
         case 'new-category':
           return (
-            <SingleInput
-              modalProps={modalProps}
-              title="New Category"
+            <SingleInputModal
+              key={name}
+              name={name}
+              Header={props => (
+                <ModalHeader
+                  {...props}
+                  title={<ModalTitle title="New Category" shrinkOnOverflow />}
+                />
+              )}
               inputPlaceholder="Category name"
               buttonText="Add"
               onValidate={options.onValidate}
@@ -265,9 +291,17 @@ export function Modals() {
 
         case 'new-category-group':
           return (
-            <SingleInput
-              modalProps={modalProps}
-              title="New Category Group"
+            <SingleInputModal
+              key={name}
+              name={name}
+              Header={props => (
+                <ModalHeader
+                  {...props}
+                  title={
+                    <ModalTitle title="New Category Group" shrinkOnOverflow />
+                  }
+                />
+              )}
               inputPlaceholder="Category group name"
               buttonText="Add"
               onValidate={options.onValidate}
@@ -277,30 +311,27 @@ export function Modals() {
 
         case 'rollover-budget-summary':
           return (
-            <RolloverBudgetSummary
+            <NamespaceContext.Provider
               key={name}
-              modalProps={modalProps}
-              month={options.month}
-              onBudgetAction={options.onBudgetAction}
-            />
+              value={monthUtils.sheetForMonth(options.month)}
+            >
+              <RolloverBudgetSummaryModal
+                key={name}
+                month={options.month}
+                onBudgetAction={options.onBudgetAction}
+              />
+            </NamespaceContext.Provider>
           );
 
         case 'report-budget-summary':
-          return (
-            <ReportBudgetSummary
-              key={name}
-              modalProps={modalProps}
-              month={options.month}
-            />
-          );
+          return <ReportBudgetSummaryModal key={name} month={options.month} />;
 
         case 'schedule-edit':
           return (
             <ScheduleDetails
               key={name}
-              modalProps={modalProps}
               id={options?.id || null}
-              actions={actions}
+              transaction={options?.transaction || null}
             />
           );
 
@@ -308,77 +339,229 @@ export function Modals() {
           return (
             <ScheduleLink
               key={name}
-              modalProps={modalProps}
-              actions={actions}
               transactionIds={options?.transactionIds}
+              getTransaction={options?.getTransaction}
             />
           );
 
         case 'schedules-discover':
-          return (
-            <DiscoverSchedules
-              key={name}
-              modalProps={modalProps}
-              actions={actions}
-            />
-          );
+          return <DiscoverSchedules key={name} />;
 
         case 'schedule-posts-offline-notification':
-          return (
-            <PostsOfflineNotification
-              key={name}
-              modalProps={modalProps}
-              actions={actions}
-            />
-          );
+          return <PostsOfflineNotification key={name} />;
 
-        case 'switch-budget-type':
+        case 'account-menu':
           return (
-            <SwitchBudgetType
+            <AccountMenuModal
               key={name}
-              modalProps={modalProps}
-              onSwitch={options?.onSwitch}
+              accountId={options.accountId}
+              onSave={options.onSave}
+              onEditNotes={options.onEditNotes}
+              onCloseAccount={options.onCloseAccount}
+              onReopenAccount={options.onReopenAccount}
+              onClose={options.onClose}
             />
           );
 
         case 'category-menu':
           return (
-            <CategoryMenu
+            <CategoryMenuModal
               key={name}
-              modalProps={modalProps}
               categoryId={options.categoryId}
               onSave={options.onSave}
               onEditNotes={options.onEditNotes}
               onDelete={options.onDelete}
+              onToggleVisibility={options.onToggleVisibility}
               onClose={options.onClose}
             />
           );
 
+        case 'rollover-budget-menu':
+          return (
+            <NamespaceContext.Provider
+              key={name}
+              value={monthUtils.sheetForMonth(options.month)}
+            >
+              <RolloverBudgetMenuModal
+                categoryId={options.categoryId}
+                onUpdateBudget={options.onUpdateBudget}
+                onCopyLastMonthAverage={options.onCopyLastMonthAverage}
+                onSetMonthsAverage={options.onSetMonthsAverage}
+                onApplyBudgetTemplate={options.onApplyBudgetTemplate}
+              />
+            </NamespaceContext.Provider>
+          );
+
+        case 'report-budget-menu':
+          return (
+            <NamespaceContext.Provider
+              key={name}
+              value={monthUtils.sheetForMonth(options.month)}
+            >
+              <ReportBudgetMenuModal
+                categoryId={options.categoryId}
+                onUpdateBudget={options.onUpdateBudget}
+                onCopyLastMonthAverage={options.onCopyLastMonthAverage}
+                onSetMonthsAverage={options.onSetMonthsAverage}
+                onApplyBudgetTemplate={options.onApplyBudgetTemplate}
+              />
+            </NamespaceContext.Provider>
+          );
+
         case 'category-group-menu':
           return (
-            <CategoryGroupMenu
+            <CategoryGroupMenuModal
               key={name}
-              modalProps={modalProps}
               groupId={options.groupId}
               onSave={options.onSave}
               onAddCategory={options.onAddCategory}
               onEditNotes={options.onEditNotes}
               onSaveNotes={options.onSaveNotes}
               onDelete={options.onDelete}
+              onToggleVisibility={options.onToggleVisibility}
               onClose={options.onClose}
             />
           );
 
         case 'notes':
           return (
-            <Notes
+            <NotesModal
               key={name}
-              modalProps={modalProps}
               id={options.id}
               name={options.name}
               onSave={options.onSave}
             />
           );
+
+        case 'rollover-balance-menu':
+          return (
+            <NamespaceContext.Provider
+              key={name}
+              value={monthUtils.sheetForMonth(options.month)}
+            >
+              <RolloverBalanceMenuModal
+                categoryId={options.categoryId}
+                onCarryover={options.onCarryover}
+                onTransfer={options.onTransfer}
+                onCover={options.onCover}
+              />
+            </NamespaceContext.Provider>
+          );
+
+        case 'rollover-summary-to-budget-menu':
+          return (
+            <NamespaceContext.Provider
+              key={name}
+              value={monthUtils.sheetForMonth(options.month)}
+            >
+              <RolloverToBudgetMenuModal
+                onTransfer={options.onTransfer}
+                onCover={options.onCover}
+                onHoldBuffer={options.onHoldBuffer}
+                onResetHoldBuffer={options.onResetHoldBuffer}
+              />
+            </NamespaceContext.Provider>
+          );
+
+        case 'hold-buffer':
+          return (
+            <NamespaceContext.Provider
+              key={name}
+              value={monthUtils.sheetForMonth(options.month)}
+            >
+              <HoldBufferModal
+                month={options.month}
+                onSubmit={options.onSubmit}
+              />
+            </NamespaceContext.Provider>
+          );
+
+        case 'report-balance-menu':
+          return (
+            <NamespaceContext.Provider
+              key={name}
+              value={monthUtils.sheetForMonth(options.month)}
+            >
+              <ReportBalanceMenuModal
+                categoryId={options.categoryId}
+                onCarryover={options.onCarryover}
+              />
+            </NamespaceContext.Provider>
+          );
+
+        case 'transfer':
+          return (
+            <TransferModal
+              key={name}
+              title={options.title}
+              month={options.month}
+              amount={options.amount}
+              onSubmit={options.onSubmit}
+              showToBeBudgeted={options.showToBeBudgeted}
+            />
+          );
+
+        case 'cover':
+          return (
+            <CoverModal
+              key={name}
+              title={options.title}
+              month={options.month}
+              showToBeBudgeted={options.showToBeBudgeted}
+              onSubmit={options.onSubmit}
+            />
+          );
+
+        case 'scheduled-transaction-menu':
+          return (
+            <ScheduledTransactionMenuModal
+              key={name}
+              transactionId={options.transactionId}
+              onPost={options.onPost}
+              onSkip={options.onSkip}
+            />
+          );
+
+        case 'budget-page-menu':
+          return (
+            <BudgetPageMenuModal
+              key={name}
+              onAddCategoryGroup={options.onAddCategoryGroup}
+              onToggleHiddenCategories={options.onToggleHiddenCategories}
+              onSwitchBudgetFile={options.onSwitchBudgetFile}
+            />
+          );
+
+        case 'rollover-budget-month-menu':
+          return (
+            <NamespaceContext.Provider
+              key={name}
+              value={monthUtils.sheetForMonth(options.month)}
+            >
+              <RolloverBudgetMonthMenuModal
+                month={options.month}
+                onBudgetAction={options.onBudgetAction}
+                onEditNotes={options.onEditNotes}
+              />
+            </NamespaceContext.Provider>
+          );
+
+        case 'report-budget-month-menu':
+          return (
+            <NamespaceContext.Provider
+              key={name}
+              value={monthUtils.sheetForMonth(options.month)}
+            >
+              <ReportBudgetMonthMenuModal
+                month={options.month}
+                onBudgetAction={options.onBudgetAction}
+                onEditNotes={options.onEditNotes}
+              />
+            </NamespaceContext.Provider>
+          );
+
+        case 'budget-list':
+          return <BudgetListModal key={name} />;
 
         default:
           console.error('Unknown modal:', name);

@@ -7,24 +7,28 @@ import React, {
   type ReactNode,
   type ComponentType,
   type SVGProps,
+  type ComponentPropsWithoutRef,
+  type ReactElement,
 } from 'react';
 import { useDispatch } from 'react-redux';
 
 import { css } from 'glamor';
 
 import { createPayee } from 'loot-core/src/client/actions/queries';
-import { useCachedAccounts } from 'loot-core/src/client/data-hooks/accounts';
-import { useCachedPayees } from 'loot-core/src/client/data-hooks/payees';
 import { getActivePayees } from 'loot-core/src/client/reducers/queries';
+import { getNormalisedString } from 'loot-core/src/shared/normalisation';
 import {
   type AccountEntity,
   type PayeeEntity,
 } from 'loot-core/src/types/models';
 
-import { SvgAdd } from '../../icons/v1';
+import { useAccounts } from '../../hooks/useAccounts';
+import { useCommonPayees, usePayees } from '../../hooks/usePayees';
+import { SvgAdd, SvgBookmark } from '../../icons/v1';
 import { useResponsive } from '../../ResponsiveProvider';
-import { type CSSProperties, theme } from '../../style';
+import { type CSSProperties, theme, styles } from '../../style';
 import { Button } from '../common/Button';
+import { TextOneLine } from '../common/TextOneLine';
 import { View } from '../common/View';
 
 import {
@@ -32,8 +36,52 @@ import {
   defaultFilterSuggestion,
   AutocompleteFooter,
 } from './Autocomplete';
+import { ItemHeader } from './ItemHeader';
 
-function getPayeeSuggestions(payees, focusTransferPayees, accounts) {
+type PayeeAutocompleteItem = PayeeEntity;
+
+const MAX_AUTO_SUGGESTIONS = 5;
+
+function getPayeeSuggestions(
+  commonPayees: PayeeAutocompleteItem[],
+  payees: PayeeAutocompleteItem[],
+): (PayeeAutocompleteItem & PayeeItemType)[] {
+  if (commonPayees?.length > 0) {
+    const favoritePayees = payees.filter(p => p.favorite);
+    let additionalCommonPayees: PayeeAutocompleteItem[] = [];
+    if (favoritePayees.length < MAX_AUTO_SUGGESTIONS) {
+      additionalCommonPayees = commonPayees
+        .filter(
+          p => !(p.favorite || favoritePayees.map(fp => fp.id).includes(p.id)),
+        )
+        .slice(0, MAX_AUTO_SUGGESTIONS - favoritePayees.length);
+    }
+    const frequentPayees: (PayeeAutocompleteItem & PayeeItemType)[] =
+      favoritePayees.concat(additionalCommonPayees).map(p => {
+        return { ...p, itemType: 'common_payee' };
+      });
+
+    const filteredPayees: (PayeeAutocompleteItem & PayeeItemType)[] = payees
+      .filter(p => !frequentPayees.find(fp => fp.id === p.id))
+      .map<PayeeAutocompleteItem & PayeeItemType>(p => {
+        return { ...p, itemType: determineItemType(p, false) };
+      });
+
+    return frequentPayees
+      .sort((a, b) => a.name.localeCompare(b.name))
+      .concat(filteredPayees);
+  }
+
+  return payees.map(p => {
+    return { ...p, itemType: determineItemType(p, false) };
+  });
+}
+
+function filterActivePayees(
+  payees: PayeeAutocompleteItem[],
+  focusTransferPayees: boolean,
+  accounts: AccountEntity[],
+) {
   let activePayees = accounts ? getActivePayees(payees, accounts) : payees;
 
   if (focusTransferPayees && activePayees) {
@@ -43,11 +91,11 @@ function getPayeeSuggestions(payees, focusTransferPayees, accounts) {
   return activePayees || [];
 }
 
-function makeNew(value, rawPayee) {
-  if (value === 'new' && !rawPayee.startsWith('new:')) {
+function makeNew(id, rawPayee) {
+  if (id === 'new' && !rawPayee.startsWith('new:')) {
     return 'new:' + rawPayee;
   }
-  return value;
+  return id;
 }
 
 // Convert the fully resolved new value into the 'new' id that can be
@@ -57,6 +105,46 @@ function stripNew(value) {
     return 'new';
   }
   return value;
+}
+
+type PayeeListProps = {
+  items: (PayeeAutocompleteItem & PayeeItemType)[];
+  commonPayees: PayeeEntity[];
+  getItemProps: (arg: {
+    item: PayeeAutocompleteItem;
+  }) => ComponentProps<typeof View>;
+  highlightedIndex: number;
+  embedded: boolean;
+  inputValue: string;
+  renderCreatePayeeButton?: (
+    props: ComponentPropsWithoutRef<typeof CreatePayeeButton>,
+  ) => ReactNode;
+  renderPayeeItemGroupHeader?: (
+    props: ComponentPropsWithoutRef<typeof ItemHeader>,
+  ) => ReactNode;
+  renderPayeeItem?: (
+    props: ComponentPropsWithoutRef<typeof PayeeItem>,
+  ) => ReactNode;
+  footer: ReactNode;
+};
+
+type ItemTypes = 'account' | 'payee' | 'common_payee';
+type PayeeItemType = {
+  itemType: ItemTypes;
+};
+
+function determineItemType(
+  item: PayeeAutocompleteItem,
+  isCommon: boolean,
+): ItemTypes {
+  if (item.transfer_acct) {
+    return 'account';
+  }
+  if (isCommon) {
+    return 'common_payee';
+  } else {
+    return 'payee';
+  }
 }
 
 function PayeeList({
@@ -69,8 +157,7 @@ function PayeeList({
   renderPayeeItemGroupHeader = defaultRenderPayeeItemGroupHeader,
   renderPayeeItem = defaultRenderPayeeItem,
   footer,
-}) {
-  const isFiltered = items.filtered;
+}: PayeeListProps) {
   let createNew = null;
   items = [...items];
 
@@ -104,15 +191,19 @@ function PayeeList({
           })}
 
         {items.map((item, idx) => {
-          const type = item.transfer_acct ? 'account' : 'payee';
+          const itemType = item.itemType;
           let title;
-          if (type === 'payee' && lastType !== type) {
+
+          if (itemType === 'common_payee' && lastType !== itemType) {
+            title = 'Suggested Payees';
+          } else if (itemType === 'payee' && lastType !== itemType) {
             title = 'Payees';
-          } else if (type === 'account' && lastType !== type) {
+          } else if (itemType === 'account' && lastType !== itemType) {
             title = 'Transfer To/From';
           }
-          const showMoreMessage = idx === items.length - 1 && isFiltered;
-          lastType = type;
+          const showMoreMessage =
+            idx === items.length - 1 && items.length > 100;
+          lastType = itemType;
 
           return (
             <Fragment key={item.id}>
@@ -151,22 +242,24 @@ function PayeeList({
   );
 }
 
-type PayeeAutocompleteProps = {
-  value: ComponentProps<typeof Autocomplete>['value'];
-  inputProps: ComponentProps<typeof Autocomplete>['inputProps'];
+type PayeeAutocompleteProps = ComponentProps<
+  typeof Autocomplete<PayeeAutocompleteItem>
+> & {
   showMakeTransfer?: boolean;
   showManagePayees?: boolean;
-  tableBehavior: ComponentProps<typeof Autocomplete>['tableBehavior'];
   embedded?: boolean;
-  closeOnBlur: ComponentProps<typeof Autocomplete>['closeOnBlur'];
-  onUpdate?: (value: string) => void;
-  onSelect?: (value: string) => void;
-  onManagePayees: () => void;
-  renderCreatePayeeButton?: (props: CreatePayeeButtonProps) => ReactNode;
-  renderPayeeItemGroupHeader?: (props: PayeeItemGroupHeaderProps) => ReactNode;
-  renderPayeeItem?: (props: PayeeItemProps) => ReactNode;
+  onManagePayees?: () => void;
+  renderCreatePayeeButton?: (
+    props: ComponentPropsWithoutRef<typeof CreatePayeeButton>,
+  ) => ReactElement<typeof CreatePayeeButton>;
+  renderPayeeItemGroupHeader?: (
+    props: ComponentPropsWithoutRef<typeof ItemHeader>,
+  ) => ReactElement<typeof ItemHeader>;
+  renderPayeeItem?: (
+    props: ComponentPropsWithoutRef<typeof PayeeItem>,
+  ) => ReactElement<typeof PayeeItem>;
   accounts?: AccountEntity[];
-  payees?: PayeeEntity[];
+  payees?: PayeeAutocompleteItem[];
 };
 
 export function PayeeAutocomplete({
@@ -174,9 +267,9 @@ export function PayeeAutocomplete({
   inputProps,
   showMakeTransfer = true,
   showManagePayees = false,
-  tableBehavior,
-  embedded,
+  clearOnBlur = true,
   closeOnBlur,
+  embedded,
   onUpdate,
   onSelect,
   onManagePayees,
@@ -187,12 +280,13 @@ export function PayeeAutocomplete({
   payees,
   ...props
 }: PayeeAutocompleteProps) {
-  const cachedPayees = useCachedPayees();
+  const commonPayees = useCommonPayees();
+  const retrievedPayees = usePayees();
   if (!payees) {
-    payees = cachedPayees;
+    payees = retrievedPayees;
   }
 
-  const cachedAccounts = useCachedAccounts();
+  const cachedAccounts = useAccounts();
   if (!accounts) {
     accounts = cachedAccounts;
   }
@@ -200,35 +294,41 @@ export function PayeeAutocomplete({
   const [focusTransferPayees, setFocusTransferPayees] = useState(false);
   const [rawPayee, setRawPayee] = useState('');
   const hasPayeeInput = !!rawPayee;
-  const payeeSuggestions = useMemo(() => {
-    const suggestions = getPayeeSuggestions(
-      payees,
+  const payeeSuggestions: PayeeAutocompleteItem[] = useMemo(() => {
+    const suggestions = getPayeeSuggestions(commonPayees, payees);
+    const filteredSuggestions = filterActivePayees(
+      suggestions,
       focusTransferPayees,
       accounts,
     );
 
     if (!hasPayeeInput) {
-      return suggestions;
+      return filteredSuggestions;
     }
-    return [{ id: 'new', name: '' }, ...suggestions];
-  }, [payees, focusTransferPayees, accounts, hasPayeeInput]);
+    filteredSuggestions.forEach(s => {
+      console.log(s.name + ' ' + s.id);
+    });
+    return [{ id: 'new', favorite: false, name: '' }, ...filteredSuggestions];
+  }, [commonPayees, payees, focusTransferPayees, accounts, hasPayeeInput]);
 
   const dispatch = useDispatch();
 
-  async function handleSelect(value, rawInputValue) {
-    if (tableBehavior) {
-      onSelect?.(makeNew(value, rawInputValue));
+  async function handleSelect(idOrIds, rawInputValue) {
+    if (!clearOnBlur) {
+      onSelect?.(makeNew(idOrIds, rawInputValue), rawInputValue);
     } else {
-      const create = () => dispatch(createPayee(rawInputValue));
+      const create = payeeName => dispatch(createPayee(payeeName));
 
-      if (Array.isArray(value)) {
-        value = await Promise.all(value.map(v => (v === 'new' ? create() : v)));
+      if (Array.isArray(idOrIds)) {
+        idOrIds = await Promise.all(
+          idOrIds.map(v => (v === 'new' ? create(rawInputValue) : v)),
+        );
       } else {
-        if (value === 'new') {
-          value = await create();
+        if (idOrIds === 'new') {
+          idOrIds = await create(rawInputValue);
         }
       }
-      onSelect?.(value);
+      onSelect?.(idOrIds, rawInputValue);
     }
   }
 
@@ -241,7 +341,7 @@ export function PayeeAutocomplete({
       embedded={embedded}
       value={stripNew(value)}
       suggestions={payeeSuggestions}
-      tableBehavior={tableBehavior}
+      clearOnBlur={clearOnBlur}
       closeOnBlur={closeOnBlur}
       itemToString={item => {
         if (!item) {
@@ -254,6 +354,7 @@ export function PayeeAutocomplete({
       focused={payeeFieldFocused}
       inputProps={{
         ...inputProps,
+        autoCapitalize: 'words',
         onBlur: () => {
           setRawPayee('');
           setPayeeFieldFocused(false);
@@ -261,9 +362,7 @@ export function PayeeAutocomplete({
         onFocus: () => setPayeeFieldFocused(true),
         onChange: setRawPayee,
       }}
-      onUpdate={(value, inputValue) =>
-        onUpdate && onUpdate(makeNew(value, inputValue))
-      }
+      onUpdate={(id, inputValue) => onUpdate?.(id, makeNew(id, inputValue))}
       onSelect={handleSelect}
       getHighlightedIndex={suggestions => {
         if (suggestions.length > 1 && suggestions[0].id === 'new') {
@@ -281,8 +380,12 @@ export function PayeeAutocomplete({
         });
 
         filtered.sort((p1, p2) => {
-          const r1 = p1.name.toLowerCase().startsWith(value.toLowerCase());
-          const r2 = p2.name.toLowerCase().startsWith(value.toLowerCase());
+          const r1 = getNormalisedString(p1.name).startsWith(
+            getNormalisedString(value),
+          );
+          const r2 = getNormalisedString(p2.name).startsWith(
+            getNormalisedString(value),
+          );
           const r1exact = p1.name.toLowerCase() === value.toLowerCase();
           const r2exact = p2.name.toLowerCase() === value.toLowerCase();
 
@@ -308,10 +411,7 @@ export function PayeeAutocomplete({
           }
         });
 
-        const isf = filtered.length > 100;
         filtered = filtered.slice(0, 100);
-        // @ts-expect-error TODO: solve this somehow
-        filtered.filtered = isf;
 
         if (filtered.length >= 2 && filtered[0].id === 'new') {
           if (
@@ -326,6 +426,7 @@ export function PayeeAutocomplete({
       renderItems={(items, getItemProps, highlightedIndex, inputValue) => (
         <PayeeList
           items={items}
+          commonPayees={commonPayees}
           getItemProps={getItemProps}
           highlightedIndex={highlightedIndex}
           inputValue={inputValue}
@@ -340,7 +441,7 @@ export function PayeeAutocomplete({
                   type={focusTransferPayees ? 'menuSelected' : 'menu'}
                   style={showManagePayees && { marginBottom: 5 }}
                   onClick={() => {
-                    onUpdate?.(null);
+                    onUpdate?.(null, null);
                     setFocusTransferPayees(!focusTransferPayees);
                   }}
                 >
@@ -369,6 +470,7 @@ type CreatePayeeButtonProps = {
   style?: CSSProperties;
 };
 
+// eslint-disable-next-line import/no-unused-modules
 export function CreatePayeeButton({
   Icon,
   payeeName,
@@ -378,26 +480,33 @@ export function CreatePayeeButton({
   ...props
 }: CreatePayeeButtonProps) {
   const { isNarrowWidth } = useResponsive();
+  const narrowStyle = isNarrowWidth
+    ? {
+        ...styles.mobileMenuItem,
+      }
+    : {};
+  const iconSize = isNarrowWidth ? 14 : 8;
+
   return (
     <View
       data-testid="create-payee-button"
       style={{
         display: 'block',
-        flexShrink: 0,
-        color:
-          embedded && isNarrowWidth ? theme.menuItemText : theme.noticeTextMenu,
+        flex: '1 0',
+        color: highlighted
+          ? theme.menuAutoCompleteTextHover
+          : theme.noticeTextMenu,
         borderRadius: embedded ? 4 : 0,
         fontSize: 11,
         fontWeight: 500,
         padding: '6px 9px',
         backgroundColor: highlighted
-          ? embedded && isNarrowWidth
-            ? theme.menuItemBackgroundHover
-            : theme.menuAutoCompleteBackgroundHover
+          ? theme.menuAutoCompleteBackgroundHover
           : 'transparent',
         ':active': {
           backgroundColor: 'rgba(100, 100, 100, .25)',
         },
+        ...narrowStyle,
         ...style,
       }}
       {...props}
@@ -406,8 +515,8 @@ export function CreatePayeeButton({
         <Icon style={{ marginRight: 5, display: 'inline-block' }} />
       ) : (
         <SvgAdd
-          width={8}
-          height={8}
+          width={iconSize}
+          height={iconSize}
           style={{ marginRight: 5, display: 'inline-block' }}
         />
       )}
@@ -417,51 +526,26 @@ export function CreatePayeeButton({
 }
 
 function defaultRenderCreatePayeeButton(
-  props: CreatePayeeButtonProps,
-): ReactNode {
+  props: ComponentPropsWithoutRef<typeof CreatePayeeButton>,
+): ReactElement<typeof CreatePayeeButton> {
   return <CreatePayeeButton {...props} />;
 }
 
-type PayeeItemGroupHeaderProps = {
-  title: string;
-  style?: CSSProperties;
-};
-
-export function PayeeItemGroupHeader({
-  title,
-  style,
-  ...props
-}: PayeeItemGroupHeaderProps) {
-  return (
-    <div
-      style={{
-        color: theme.menuAutoCompleteTextHeader,
-        padding: '4px 9px',
-        ...style,
-      }}
-      data-testid={`${title}-payee-item-group`}
-      {...props}
-    >
-      {title}
-    </div>
-  );
-}
-
 function defaultRenderPayeeItemGroupHeader(
-  props: PayeeItemGroupHeaderProps,
-): ReactNode {
-  return <PayeeItemGroupHeader {...props} />;
+  props: ComponentPropsWithoutRef<typeof ItemHeader>,
+): ReactElement<typeof ItemHeader> {
+  return <ItemHeader {...props} type="payee" />;
 }
 
 type PayeeItemProps = {
-  item: PayeeEntity;
+  item: PayeeAutocompleteItem;
   className?: string;
   style?: CSSProperties;
   highlighted?: boolean;
   embedded?: boolean;
 };
 
-export function PayeeItem({
+function PayeeItem({
   item,
   className,
   highlighted,
@@ -469,6 +553,26 @@ export function PayeeItem({
   ...props
 }: PayeeItemProps) {
   const { isNarrowWidth } = useResponsive();
+  const narrowStyle = isNarrowWidth
+    ? {
+        ...styles.mobileMenuItem,
+        borderRadius: 0,
+        borderTop: `1px solid ${theme.pillBorder}`,
+      }
+    : {};
+  const iconSize = isNarrowWidth ? 14 : 8;
+  let paddingLeftOverFromIcon = 20;
+  let itemIcon = undefined;
+  if (item.favorite) {
+    itemIcon = (
+      <SvgBookmark
+        width={iconSize}
+        height={iconSize}
+        style={{ marginRight: 5, display: 'inline-block' }}
+      />
+    );
+    paddingLeftOverFromIcon -= iconSize + 5;
+  }
   return (
     <div
       // Downshift calls `setTimeout(..., 250)` in the `onMouseMove`
@@ -496,24 +600,31 @@ export function PayeeItem({
       className={`${className} ${css([
         {
           backgroundColor: highlighted
-            ? embedded && isNarrowWidth
-              ? theme.menuItemBackgroundHover
-              : theme.menuAutoCompleteBackgroundHover
+            ? theme.menuAutoCompleteBackgroundHover
             : 'transparent',
+          color: highlighted
+            ? theme.menuAutoCompleteItemTextHover
+            : theme.menuAutoCompleteItemText,
           borderRadius: embedded ? 4 : 0,
           padding: 4,
-          paddingLeft: 20,
+          paddingLeft: paddingLeftOverFromIcon,
+          ...narrowStyle,
         },
       ])}`}
       data-testid={`${item.name}-payee-item`}
       data-highlighted={highlighted || undefined}
       {...props}
     >
-      {item.name}
+      <TextOneLine>
+        {itemIcon}
+        {item.name}
+      </TextOneLine>
     </div>
   );
 }
 
-function defaultRenderPayeeItem(props: PayeeItemProps): ReactNode {
+function defaultRenderPayeeItem(
+  props: ComponentPropsWithoutRef<typeof PayeeItem>,
+): ReactElement<typeof PayeeItem> {
   return <PayeeItem {...props} />;
 }

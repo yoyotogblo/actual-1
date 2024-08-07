@@ -16,8 +16,8 @@ export class AccountPage {
     this.cancelTransactionButton = this.page.getByRole('button', {
       name: 'Cancel',
     });
-    this.menuButton = this.page.getByRole('button', {
-      name: 'Menu',
+    this.accountMenuButton = this.page.getByRole('button', {
+      name: 'Account menu',
     });
 
     this.transactionTable = this.page.getByTestId('transaction-table');
@@ -25,6 +25,9 @@ export class AccountPage {
 
     this.filterButton = this.page.getByRole('button', { name: 'Filter' });
     this.filterSelectTooltip = this.page.getByTestId('filters-select-tooltip');
+
+    this.selectButton = this.page.getByTestId('transactions-select-button');
+    this.selectTooltip = this.page.getByTestId('transactions-select-tooltip');
   }
 
   /**
@@ -68,14 +71,21 @@ export class AccountPage {
     await this.cancelTransactionButton.click();
   }
 
+  async selectNthTransaction(index) {
+    const row = this.transactionTableRow.nth(index);
+    await row.getByTestId('select').click();
+  }
+
   /**
    * Retrieve the data for the nth-transaction.
    * 0-based index
    */
   getNthTransaction(index) {
     const row = this.transactionTableRow.nth(index);
+    const account = row.getByTestId('account');
 
     return {
+      ...(account ? { account } : {}),
       payee: row.getByTestId('payee'),
       notes: row.getByTestId('notes'),
       category: row.getByTestId('category'),
@@ -84,14 +94,19 @@ export class AccountPage {
     };
   }
 
+  async clickSelectAction(action) {
+    await this.selectButton.click();
+    await this.selectTooltip.getByRole('button', { name: action }).click();
+  }
+
   /**
    * Open the modal for closing the account.
    */
   async clickCloseAccount() {
-    await this.menuButton.click();
+    await this.accountMenuButton.click();
     await this.page.getByRole('button', { name: 'Close Account' }).click();
     return new CloseAccountModal(
-      this.page.locator('css=[aria-modal]'),
+      this.page.getByTestId('close-account-modal'),
       this.page,
     );
   }
@@ -107,6 +122,15 @@ export class AccountPage {
   }
 
   /**
+   * Filter to a specific note
+   */
+  async filterByNote(note) {
+    const filterTooltip = await this.filterBy('Note');
+    await this.page.keyboard.type(note);
+    await filterTooltip.applyButton.click();
+  }
+
+  /**
    * Remove the nth filter
    */
   async removeFilter(idx) {
@@ -117,6 +141,24 @@ export class AccountPage {
   }
 
   async _fillTransactionFields(transactionRow, transaction) {
+    if (transaction.debit) {
+      await transactionRow.getByTestId('debit').click();
+      await this.page.keyboard.type(transaction.debit);
+      await this.page.keyboard.press('Tab');
+    }
+
+    if (transaction.credit) {
+      await transactionRow.getByTestId('credit').click();
+      await this.page.keyboard.type(transaction.credit);
+      await this.page.keyboard.press('Tab');
+    }
+
+    if (transaction.account) {
+      await transactionRow.getByTestId('account').click();
+      await this.page.keyboard.type(transaction.account);
+      await this.page.keyboard.press('Tab');
+    }
+
     if (transaction.payee) {
       await transactionRow.getByTestId('payee').click();
       await this.page.keyboard.type(transaction.payee);
@@ -138,18 +180,6 @@ export class AccountPage {
         await this.page.keyboard.type(transaction.category);
         await this.page.keyboard.press('Tab');
       }
-    }
-
-    if (transaction.debit) {
-      await transactionRow.getByTestId('debit').click();
-      await this.page.keyboard.type(transaction.debit);
-      await this.page.keyboard.press('Tab');
-    }
-
-    if (transaction.credit) {
-      await transactionRow.getByTestId('credit').click();
-      await this.page.keyboard.type(transaction.credit);
-      await this.page.keyboard.press('Tab');
     }
   }
 }

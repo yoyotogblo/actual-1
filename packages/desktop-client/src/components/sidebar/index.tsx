@@ -1,88 +1,45 @@
-// @ts-strict-ignore
-import React, {
-  createContext,
-  useState,
-  useContext,
-  useMemo,
-  type ReactNode,
-  type Dispatch,
-  type SetStateAction,
-} from 'react';
-import { useSelector } from 'react-redux';
+import React from 'react';
 
+import { useDebounceCallback } from 'usehooks-ts';
+
+import { useGlobalPref } from '../../hooks/useGlobalPref';
 import { useResponsive } from '../../ResponsiveProvider';
 import { View } from '../common/View';
 
-import { SIDEBAR_WIDTH } from './Sidebar';
-import { SidebarWithData } from './SidebarWithData';
-
-type SidebarContextValue = {
-  hidden: boolean;
-  setHidden: Dispatch<SetStateAction<boolean>>;
-  floating: boolean;
-  alwaysFloats: boolean;
-};
-
-const SidebarContext = createContext<SidebarContextValue>(null);
-
-type SidebarProviderProps = {
-  children: ReactNode;
-};
-
-export function SidebarProvider({ children }: SidebarProviderProps) {
-  const floatingSidebar = useSelector(
-    state => state.prefs.global.floatingSidebar,
-  );
-  const [hidden, setHidden] = useState(true);
-  const { width } = useResponsive();
-  const alwaysFloats = width < 668;
-  const floating = floatingSidebar || alwaysFloats;
-
-  return (
-    <SidebarContext.Provider
-      value={{ hidden, setHidden, floating, alwaysFloats }}
-    >
-      {children}
-    </SidebarContext.Provider>
-  );
-}
-
-export function useSidebar() {
-  const { hidden, setHidden, floating, alwaysFloats } =
-    useContext(SidebarContext);
-
-  return useMemo(
-    () => ({ hidden, setHidden, floating, alwaysFloats }),
-    [hidden, setHidden, floating, alwaysFloats],
-  );
-}
+import { Sidebar } from './Sidebar';
+import { useSidebar } from './SidebarProvider';
 
 export function FloatableSidebar() {
-  const floatingSidebar = useSelector(
-    state => state.prefs.global.floatingSidebar,
-  );
+  const [floatingSidebar] = useGlobalPref('floatingSidebar');
 
   const sidebar = useSidebar();
   const { isNarrowWidth } = useResponsive();
 
   const sidebarShouldFloat = floatingSidebar || sidebar.alwaysFloats;
+  const debouncedHideSidebar = useDebounceCallback(
+    () => sidebar.setHidden(true),
+    350,
+  );
 
   return isNarrowWidth ? null : (
     <View
       onMouseOver={
         sidebarShouldFloat
           ? e => {
+              debouncedHideSidebar.cancel();
               e.stopPropagation();
               sidebar.setHidden(false);
             }
-          : null
+          : undefined
       }
-      onMouseLeave={sidebarShouldFloat ? () => sidebar.setHidden(true) : null}
+      onMouseLeave={
+        sidebarShouldFloat ? () => debouncedHideSidebar() : undefined
+      }
       style={{
-        position: sidebarShouldFloat ? 'absolute' : null,
-        top: 12,
+        position: sidebarShouldFloat ? 'absolute' : undefined,
+        top: 8,
         // If not floating, the -50 takes into account the transform below
-        bottom: sidebarShouldFloat ? 12 : -50,
+        bottom: sidebarShouldFloat ? 8 : -50,
         zIndex: 1001,
         borderRadius: sidebarShouldFloat ? '0 6px 6px 0' : 0,
         overflow: 'hidden',
@@ -90,17 +47,15 @@ export function FloatableSidebar() {
           !sidebarShouldFloat || sidebar.hidden
             ? 'none'
             : '0 15px 30px 0 rgba(0,0,0,0.25), 0 3px 15px 0 rgba(0,0,0,.5)',
-        transform: `translateY(${!sidebarShouldFloat ? -12 : 0}px)
+        transform: `translateY(${!sidebarShouldFloat ? -8 : 0}px)
                       translateX(${
-                        sidebarShouldFloat && sidebar.hidden
-                          ? -SIDEBAR_WIDTH
-                          : 0
-                      }px)`,
+                        sidebarShouldFloat && sidebar.hidden ? '-100' : '0'
+                      }%)`,
         transition:
           'transform .5s, box-shadow .5s, border-radius .5s, bottom .5s',
       }}
     >
-      <SidebarWithData />
+      <Sidebar />
     </View>
   );
 }

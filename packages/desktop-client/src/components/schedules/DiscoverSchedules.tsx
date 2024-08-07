@@ -1,6 +1,5 @@
 // @ts-strict-ignore
 import React, { useState } from 'react';
-import { useSelector } from 'react-redux';
 
 import { runQuery } from 'loot-core/src/client/query-helpers';
 import { send } from 'loot-core/src/platform/client/fetch';
@@ -8,7 +7,7 @@ import { q } from 'loot-core/src/shared/query';
 import { getRecurringDescription } from 'loot-core/src/shared/schedules';
 import type { DiscoverScheduleEntity } from 'loot-core/src/types/models';
 
-import type { BoundActions } from '../../hooks/useActions';
+import { useDateFormat } from '../../hooks/useDateFormat';
 import {
   useSelected,
   useSelectedDispatch,
@@ -17,9 +16,8 @@ import {
 } from '../../hooks/useSelected';
 import { useSendPlatformRequest } from '../../hooks/useSendPlatformRequest';
 import { theme } from '../../style';
-import type { CommonModalProps } from '../../types/modals';
-import { ButtonWithLoading } from '../common/Button';
-import { Modal } from '../common/Modal';
+import { ButtonWithLoading } from '../common/Button2';
+import { Modal, ModalCloseButton, ModalHeader } from '../common/Modal2';
 import { Paragraph } from '../common/Paragraph';
 import { Stack } from '../common/Stack';
 import { View } from '../common/View';
@@ -39,9 +37,7 @@ function DiscoverSchedulesTable({
 }) {
   const selectedItems = useSelectedItems();
   const dispatchSelected = useSelectedDispatch();
-  const dateFormat = useSelector(
-    state => state.prefs.local.dateFormat || 'MM/dd/yyyy',
-  );
+  const dateFormat = useDateFormat() || 'MM/dd/yyyy';
 
   function renderItem({ item }: { item: DiscoverScheduleEntity }) {
     const selected = selectedItems.has(item.id);
@@ -126,13 +122,7 @@ function DiscoverSchedulesTable({
   );
 }
 
-export function DiscoverSchedules({
-  modalProps,
-  actions,
-}: {
-  modalProps: CommonModalProps;
-  actions: BoundActions;
-}) {
+export function DiscoverSchedules() {
   const { data, isLoading } = useSendPlatformRequest('schedule/discover');
 
   const schedules = data || [];
@@ -175,47 +165,57 @@ export function DiscoverSchedules({
     }
 
     setCreating(false);
-    actions.popModal();
   }
 
   return (
     <Modal
-      title="Found schedules"
-      size={{ width: 850, height: 650 }}
-      {...modalProps}
+      name="schedules-discover"
+      containerProps={{ style: { width: 850, height: 650 } }}
     >
-      <Paragraph>
-        We found some possible schedules in your current transactions. Select
-        the ones you want to create.
-      </Paragraph>
-      <Paragraph>
-        If you expected a schedule here and don’t see it, it might be because
-        the payees of the transactions don’t match. Make sure you rename payees
-        on all transactions for a schedule to be the same payee.
-      </Paragraph>
+      {({ state: { close } }) => (
+        <>
+          <ModalHeader
+            title="Found Schedules"
+            rightContent={<ModalCloseButton onClick={close} />}
+          />
+          <Paragraph>
+            We found some possible schedules in your current transactions.
+            Select the ones you want to create.
+          </Paragraph>
+          <Paragraph>
+            If you expected a schedule here and don’t see it, it might be
+            because the payees of the transactions don’t match. Make sure you
+            rename payees on all transactions for a schedule to be the same
+            payee.
+          </Paragraph>
 
-      <SelectedProvider instance={selectedInst}>
-        <DiscoverSchedulesTable loading={isLoading} schedules={schedules} />
-      </SelectedProvider>
+          <SelectedProvider instance={selectedInst}>
+            <DiscoverSchedulesTable loading={isLoading} schedules={schedules} />
+          </SelectedProvider>
 
-      <Stack
-        direction="row"
-        align="center"
-        justify="flex-end"
-        style={{
-          paddingTop: 20,
-          paddingBottom: 0,
-        }}
-      >
-        <ButtonWithLoading
-          type="primary"
-          loading={creating}
-          disabled={selectedInst.items.size === 0}
-          onClick={onCreate}
-        >
-          Create schedules
-        </ButtonWithLoading>
-      </Stack>
+          <Stack
+            direction="row"
+            align="center"
+            justify="flex-end"
+            style={{
+              paddingTop: 20,
+              paddingBottom: 0,
+            }}
+          >
+            <ButtonWithLoading
+              variant="primary"
+              isLoading={creating}
+              isDisabled={selectedInst.items.size === 0}
+              onPress={() => {
+                onCreate();
+                close();
+              }}
+            >
+              Create schedules
+            </ButtonWithLoading>
+          </Stack>
+        </>
+      )}
     </Modal>
   );
 }

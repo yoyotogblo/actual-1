@@ -4,21 +4,20 @@ import { useDispatch, useSelector } from 'react-redux';
 import { replaceModal } from 'loot-core/src/client/actions/modals';
 import { send } from 'loot-core/src/platform/client/fetch';
 
+import { usePayees } from '../../hooks/usePayees';
 import { theme } from '../../style';
 import { Information } from '../alerts';
-import { Button } from '../common/Button';
-import { Modal, ModalButtons } from '../common/Modal';
+import { Button } from '../common/Button2';
+import { Modal, ModalButtons } from '../common/Modal2';
 import { Paragraph } from '../common/Paragraph';
 import { Text } from '../common/Text';
 import { View } from '../common/View';
 
 const highlightStyle = { color: theme.pageTextPositive };
 
-export function MergeUnusedPayees({ modalProps, payeeIds, targetPayeeId }) {
-  const { payees: allPayees, modalStack } = useSelector(state => ({
-    payees: state.queries.payees,
-    modalStack: state.modals.modalStack,
-  }));
+export function MergeUnusedPayees({ payeeIds, targetPayeeId }) {
+  const allPayees = usePayees();
+  const modalStack = useSelector(state => state.modals.modalStack);
   const isEditingRule = !!modalStack.find(m => m.name === 'edit-rule');
   const dispatch = useDispatch();
   const [shouldCreateRule, setShouldCreateRule] = useState(true);
@@ -64,8 +63,6 @@ export function MergeUnusedPayees({ modalProps, payeeIds, targetPayeeId }) {
       ruleId = id;
     }
 
-    modalProps.onClose();
-
     return ruleId;
   }
 
@@ -79,14 +76,8 @@ export function MergeUnusedPayees({ modalProps, payeeIds, targetPayeeId }) {
   }
 
   return (
-    <Modal
-      title="Merge payee?"
-      padding={0}
-      showHeader={false}
-      {...modalProps}
-      style={modalProps.style}
-    >
-      {() => (
+    <Modal name="merge-unused-payees">
+      {({ state: { close } }) => (
         <View style={{ padding: 20, maxWidth: 500 }}>
           <View>
             <Paragraph style={{ marginBottom: 10, fontWeight: 500 }}>
@@ -159,25 +150,27 @@ export function MergeUnusedPayees({ modalProps, payeeIds, targetPayeeId }) {
 
             <ModalButtons style={{ marginTop: 20 }} focusButton>
               <Button
-                type="primary"
-                isSubmit={false}
+                variant="primary"
                 style={{ marginRight: 10 }}
-                onClick={onMerge}
+                onPress={() => {
+                  onMerge();
+                  close();
+                }}
               >
                 Merge
               </Button>
               {!isEditingRule && (
                 <Button
                   style={{ marginRight: 10 }}
-                  onClick={onMergeAndCreateRule}
+                  onPress={() => {
+                    onMergeAndCreateRule();
+                    close();
+                  }}
                 >
                   Merge and edit rule
                 </Button>
               )}
-              <Button
-                style={{ marginRight: 10 }}
-                onClick={() => modalProps.onBack()}
-              >
+              <Button style={{ marginRight: 10 }} onPress={close}>
                 Do nothing
               </Button>
             </ModalButtons>

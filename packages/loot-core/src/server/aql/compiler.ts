@@ -1,3 +1,5 @@
+import { getNormalisedString } from '../../shared/normalisation';
+
 // @ts-strict-ignore
 let _uid = 0;
 function resetUid() {
@@ -600,6 +602,10 @@ const compileFunction = saveStack('function', (state, func) => {
     }
 
     // date functions
+    case '$day': {
+      validateArgLength(args, 1);
+      return castInput(state, args[0], 'date');
+    }
     case '$month': {
       validateArgLength(args, 1);
       return castInput(state, args[0], 'date-month');
@@ -716,11 +722,15 @@ const compileOp = saveStack('op', (state, fieldRef, opData) => {
     }
     case '$like': {
       const [left, right] = valArray(state, [lhs, rhs], ['string', 'string']);
-      return `${left} LIKE ${right}`;
+      return `UNICODE_LIKE(${getNormalisedString(right)}, NORMALISE(${left}))`;
+    }
+    case '$regexp': {
+      const [left, right] = valArray(state, [lhs, rhs], ['string', 'string']);
+      return `REGEXP(${right}, ${left})`;
     }
     case '$notlike': {
       const [left, right] = valArray(state, [lhs, rhs], ['string', 'string']);
-      return `(${left} NOT LIKE ${right}\n OR ${left} IS NULL)`;
+      return `(NOT UNICODE_LIKE(${getNormalisedString(right)}, NORMALISE(${left}))\n OR ${left} IS NULL)`;
     }
     default:
       throw new CompileError(`Unknown operator: ${op}`);

@@ -1,23 +1,36 @@
 import React, { useState } from 'react';
+import { useDispatch } from 'react-redux';
 
+import {
+  linkAccount,
+  linkAccountSimpleFin,
+  unlinkAccount,
+} from 'loot-core/client/actions';
+
+import { useAccounts } from '../../hooks/useAccounts';
 import { theme } from '../../style';
 import { Autocomplete } from '../autocomplete/Autocomplete';
-import { Button } from '../common/Button';
-import { Modal } from '../common/Modal';
+import { Button } from '../common/Button2';
+import { Modal, ModalCloseButton, ModalHeader } from '../common/Modal2';
 import { Text } from '../common/Text';
 import { View } from '../common/View';
+import { PrivacyFilter } from '../PrivacyFilter';
 import { TableHeader, Table, Row, Field } from '../table';
 
-const addAccountOption = { id: 'new', name: 'Create new account' };
+const addOnBudgetAccountOption = { id: 'new-on', name: 'Create new account' };
+const addOffBudgetAccountOption = {
+  id: 'new-off',
+  name: 'Create new account (off-budget)',
+};
 
 export function SelectLinkedAccounts({
-  modalProps,
   requisitionId,
   externalAccounts,
-  localAccounts,
-  actions,
   syncSource,
 }) {
+  externalAccounts.sort((a, b) => a.name.localeCompare(b.name));
+  const dispatch = useDispatch();
+  const localAccounts = useAccounts().filter(a => a.closed === 0);
   const [chosenAccounts, setChosenAccounts] = useState(() => {
     return Object.fromEntries(
       localAccounts
@@ -34,7 +47,7 @@ export function SelectLinkedAccounts({
     localAccounts
       .filter(acc => acc.account_id)
       .filter(acc => !chosenLocalAccountIds.includes(acc.id))
-      .forEach(acc => actions.unlinkAccount(acc.id));
+      .forEach(acc => dispatch(unlinkAccount(acc.id)));
 
     // Link new accounts
     Object.entries(chosenAccounts).forEach(
@@ -42,6 +55,7 @@ export function SelectLinkedAccounts({
         const externalAccount = externalAccounts.find(
           account => account.account_id === chosenExternalAccountId,
         );
+        const offBudget = chosenLocalAccountId === addOffBudgetAccountOption.id;
 
         // Skip linking accounts that were previously linked with
         // a different bank.
@@ -51,25 +65,31 @@ export function SelectLinkedAccounts({
 
         // Finally link the matched account
         if (syncSource === 'simpleFin') {
-          actions.linkAccountSimpleFin(
-            externalAccount,
-            chosenLocalAccountId !== addAccountOption.id
-              ? chosenLocalAccountId
-              : undefined,
+          dispatch(
+            linkAccountSimpleFin(
+              externalAccount,
+              chosenLocalAccountId !== addOnBudgetAccountOption.id &&
+                chosenLocalAccountId !== addOffBudgetAccountOption.id
+                ? chosenLocalAccountId
+                : undefined,
+              offBudget,
+            ),
           );
         } else {
-          actions.linkAccount(
-            requisitionId,
-            externalAccount,
-            chosenLocalAccountId !== addAccountOption.id
-              ? chosenLocalAccountId
-              : undefined,
+          dispatch(
+            linkAccount(
+              requisitionId,
+              externalAccount,
+              chosenLocalAccountId !== addOnBudgetAccountOption.id &&
+                chosenLocalAccountId !== addOffBudgetAccountOption.id
+                ? chosenLocalAccountId
+                : undefined,
+              offBudget,
+            ),
           );
         }
       },
     );
-
-    actions.closeModal();
   }
 
   const unlinkedAccounts = localAccounts.filter(
@@ -91,9 +111,16 @@ export function SelectLinkedAccounts({
   }
 
   return (
-    <Modal title="Link Accounts" {...modalProps} style={{ width: 800 }}>
-      {() => (
+    <Modal
+      name="select-linked-accounts"
+      containerProps={{ style: { width: 800 } }}
+    >
+      {({ state: { close } }) => (
         <>
+          <ModalHeader
+            title="Link Accounts"
+            rightContent={<ModalCloseButton onClick={close} />}
+          />
           <Text style={{ marginBottom: 10 }}>
             We found the following accounts. Select which ones you want to add:
           </Text>
@@ -107,6 +134,7 @@ export function SelectLinkedAccounts({
             <TableHeader
               headers={[
                 { name: 'Bank Account To Sync', width: 200 },
+                { name: 'Balance', width: 80 },
                 { name: 'Account in Actual', width: 'flex' },
                 { name: 'Actions', width: 'flex' },
               ]}
@@ -121,11 +149,15 @@ export function SelectLinkedAccounts({
                   <TableRow
                     externalAccount={item}
                     chosenAccount={
-                      chosenAccounts[item.account_id] === addAccountOption.id
-                        ? addAccountOption
-                        : localAccounts.find(
-                            acc => chosenAccounts[item.account_id] === acc.id,
-                          )
+                      chosenAccounts[item.account_id] ===
+                      addOnBudgetAccountOption.id
+                        ? addOnBudgetAccountOption
+                        : chosenAccounts[item.account_id] ===
+                            addOffBudgetAccountOption.id
+                          ? addOffBudgetAccountOption
+                          : localAccounts.find(
+                              acc => chosenAccounts[item.account_id] === acc.id,
+                            )
                     }
                     unlinkedAccounts={unlinkedAccounts}
                     onSetLinkedAccount={onSetLinkedAccount}
@@ -143,9 +175,12 @@ export function SelectLinkedAccounts({
             }}
           >
             <Button
-              type="primary"
-              onClick={onNext}
-              disabled={!Object.keys(chosenAccounts).length}
+              variant="primary"
+              onPress={() => {
+                onNext();
+                close();
+              }}
+              isDisabled={!Object.keys(chosenAccounts).length}
             >
               Link accounts
             </Button>
@@ -166,15 +201,19 @@ function TableRow({
 
   const availableAccountOptions = [
     ...unlinkedAccounts,
-    chosenAccount?.id !== addAccountOption.id && chosenAccount,
-    addAccountOption,
+    chosenAccount?.id !== addOnBudgetAccountOption.id && chosenAccount,
+    addOnBudgetAccountOption,
+    addOffBudgetAccountOption,
   ].filter(Boolean);
 
   return (
     <Row style={{ backgroundColor: theme.tableBackground }}>
       <Field width={200}>{externalAccount.name}</Field>
+      <Field width={80}>
+        <PrivacyFilter>{externalAccount.balance}</PrivacyFilter>
+      </Field>
       <Field
-        width="flex"
+        width="40%"
         truncate={focusedField !== 'account'}
         onClick={() => setFocusedField('account')}
       >
@@ -196,10 +235,10 @@ function TableRow({
           chosenAccount?.name
         )}
       </Field>
-      <Field width="flex">
+      <Field width="20%">
         {chosenAccount ? (
           <Button
-            onClick={() => {
+            onPress={() => {
               onSetLinkedAccount(externalAccount, null);
             }}
             style={{ float: 'right' }}
@@ -208,8 +247,8 @@ function TableRow({
           </Button>
         ) : (
           <Button
-            type="primary"
-            onClick={() => {
+            variant="primary"
+            onPress={() => {
               setFocusedField('account');
             }}
             style={{ float: 'right' }}

@@ -1,12 +1,13 @@
 import { type numberFormats } from '../shared/util';
 
+import { spendingReportTimeType } from './models/reports';
+
 export type FeatureFlag =
-  | 'categorySpendingReport'
-  | 'sankeyReport'
   | 'reportBudget'
   | 'goalTemplatesEnabled'
-  | 'customReports'
-  | 'simpleFinSync';
+  | 'spendingReport'
+  | 'simpleFinSync'
+  | 'iterableTopologicalSort';
 
 export type LocalPrefs = Partial<
   {
@@ -19,14 +20,13 @@ export type LocalPrefs = Partial<
       | 'dd.MM.yyyy';
     numberFormat: (typeof numberFormats)[number]['value'];
     hideFraction: boolean;
-    hideClosedAccounts: boolean;
-    hideMobileMessage: boolean;
     isPrivacyEnabled: boolean;
     budgetName: string;
     'ui.showClosedAccounts': boolean;
     'expand-splits': boolean;
     [key: `show-extra-balances-${string}`]: boolean;
     [key: `hide-cleared-${string}`]: boolean;
+    [key: `hide-reconciled-${string}`]: boolean;
     'budget.collapsed': string[];
     'budget.summaryCollapsed': boolean;
     'budget.showHiddenCategories': boolean;
@@ -40,7 +40,6 @@ export type LocalPrefs = Partial<
     [key: `flip-amount-${string}-${'csv' | 'qif'}`]: boolean;
     'flags.updateNotificationShownForVersion': string;
     id: string;
-    isCached: boolean;
     lastUploaded: string;
     cloudFileId: string;
     groupId: string;
@@ -53,13 +52,19 @@ export type LocalPrefs = Partial<
     reportsViewLegend: boolean;
     reportsViewSummary: boolean;
     reportsViewLabel: boolean;
+    spendingReportFilter: string;
+    spendingReportTime: spendingReportTimeType;
+    spendingReportCompare: spendingReportTimeType;
+    sidebarWidth: number;
+    'mobile.showSpentColumn': boolean;
   } & Record<`flags.${FeatureFlag}`, boolean>
 >;
 
-export type Theme = 'light' | 'dark' | 'auto';
+export type Theme = 'light' | 'dark' | 'auto' | 'midnight' | 'development';
 export type GlobalPrefs = Partial<{
   floatingSidebar: boolean;
   maxMonths: number;
+  keyId?: string;
   theme: Theme;
   documentDir: string; // Electron only
 }>;

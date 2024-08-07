@@ -15,22 +15,22 @@ function validateRule(rule: Partial<RuleEntity>) {
   // Returns an array of errors, the array is the same link as the
   // passed-in `array`, or null if there are no errors
   function runValidation<T>(array: T[], validate: (item: T) => unknown) {
-    const result = array
-      .map(item => {
-        try {
-          validate(item);
-        } catch (e) {
-          if (e instanceof RuleError) {
-            console.warn('Invalid rule', e);
-            return e.type;
-          }
-          throw e;
+    const result = array.map(item => {
+      try {
+        validate(item);
+      } catch (e) {
+        if (e instanceof RuleError) {
+          console.warn('Invalid rule', e);
+          return e.type;
         }
-        return null;
-      })
-      .filter((res): res is string => typeof res === 'string');
+        throw e;
+      }
+      return null;
+    });
 
-    return result.length ? result : null;
+    return result.filter((res): res is string => typeof res === 'string').length
+      ? result
+      : null;
   }
 
   const conditionErrors = runValidation(
@@ -46,15 +46,23 @@ function validateRule(rule: Partial<RuleEntity>) {
   );
 
   const actionErrors = runValidation(rule.actions, action =>
-    action.op === 'link-schedule'
-      ? new Action(action.op, null, action.value, null, ruleFieldTypes)
-      : new Action(
+    action.op === 'set-split-amount'
+      ? new Action(
           action.op,
-          action.field,
+          null,
           action.value,
           action.options,
           ruleFieldTypes,
-        ),
+        )
+      : action.op === 'link-schedule'
+        ? new Action(action.op, null, action.value, null, ruleFieldTypes)
+        : new Action(
+            action.op,
+            action.field,
+            action.value,
+            action.options,
+            ruleFieldTypes,
+          ),
   );
 
   if (conditionErrors || actionErrors) {
@@ -84,7 +92,7 @@ app.method(
     }
 
     const id = await rules.insertRule(rule);
-    return { id };
+    return { id, ...rule };
   }),
 );
 
@@ -97,7 +105,7 @@ app.method(
     }
 
     await rules.updateRule(rule);
-    return {};
+    return rule;
   }),
 );
 
@@ -129,8 +137,8 @@ app.method(
 app.method(
   'rule-apply-actions',
   mutator(
-    undoable(async function ({ transactionIds, actions }) {
-      return rules.applyActions(transactionIds, actions);
+    undoable(async function ({ transactions, actions }) {
+      return rules.applyActions(transactions, actions);
     }),
   ),
 );
