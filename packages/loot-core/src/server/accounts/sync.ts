@@ -747,7 +747,7 @@ export async function syncAccount(
         true,
         useStrictIdChecking,
       );
-	  await updateAccountBalance(id, accountCurrentBalance);
+      await updateAccountBalance(id, accountCurrentBalance);
       await updateAccountNotesWithBalance(
         id,
         accountCurrentBalance,
