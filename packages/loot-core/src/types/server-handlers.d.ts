@@ -18,6 +18,7 @@ import {
   PayeeEntity,
 } from './models';
 import { GlobalPrefs, LocalPrefs } from './prefs';
+import { Query } from './query';
 import { EmptyObject } from './util';
 
 export interface ServerHandlers {
@@ -28,11 +29,8 @@ export interface ServerHandlers {
   redo: () => Promise<void>;
 
   'transactions-batch-update': (
-    arg: Omit<
-      Parameters<typeof batchUpdateTransactions>[0],
-      'detectOrphanPayees'
-    >,
-  ) => Promise<Awaited<ReturnType<typeof batchUpdateTransactions>>>;
+    ...arg: Parameters<typeof batchUpdateTransactions>
+  ) => ReturnType<typeof batchUpdateTransactions>;
 
   'transaction-add': (transaction) => Promise<EmptyObject>;
 
@@ -111,7 +109,7 @@ export interface ServerHandlers {
 
   'payees-get-rule-counts': () => Promise<unknown>;
 
-  'payees-merge': (arg: { targetId; mergeIds }) => Promise<unknown>;
+  'payees-merge': (arg: { targetId; mergeIds }) => Promise<void>;
 
   'payees-batch-change': (arg: {
     added?;
@@ -140,7 +138,7 @@ export interface ServerHandlers {
 
   'create-query': (arg: { sheetName; name; query }) => Promise<unknown>;
 
-  query: (query) => Promise<{ data; dependencies }>;
+  query: (query: Query) => Promise<{ data: unknown; dependencies }>;
 
   'account-update': (arg: { id; name }) => Promise<unknown>;
 

@@ -1,15 +1,20 @@
 // @ts-strict-ignore
 import React, { useCallback, useRef, useState } from 'react';
+import { Trans, useTranslation } from 'react-i18next';
 import { useDispatch } from 'react-redux';
 
 import { pushModal } from 'loot-core/client/actions';
 import { useSchedules } from 'loot-core/src/client/data-hooks/schedules';
 import { send } from 'loot-core/src/platform/client/fetch';
 import { type Query } from 'loot-core/src/shared/query';
-import { type TransactionEntity } from 'loot-core/src/types/models';
+import {
+  type ScheduleEntity,
+  type TransactionEntity,
+} from 'loot-core/src/types/models';
 
 import { SvgAdd } from '../../icons/v0';
 import { Button } from '../common/Button2';
+import { InitialFocus } from '../common/InitialFocus';
 import { Modal, ModalCloseButton, ModalHeader } from '../common/Modal2';
 import { Search } from '../common/Search';
 import { Text } from '../common/Text';
@@ -21,13 +26,17 @@ export function ScheduleLink({
   transactionIds: ids,
   getTransaction,
   accountName,
+  onScheduleLinked,
 }: {
   transactionIds: string[];
   getTransaction: (transactionId: string) => TransactionEntity;
-  accountName: string;
+  accountName?: string;
+  onScheduleLinked?: (schedule: ScheduleEntity) => void;
 }) {
+  const { t } = useTranslation();
+
   const dispatch = useDispatch();
-  const [filter, setFilter] = useState(accountName);
+  const [filter, setFilter] = useState(accountName || '');
 
   const scheduleData = useSchedules({
     transform: useCallback((q: Query) => q.filter({ completed: false }), []),
@@ -45,6 +54,7 @@ export function ScheduleLink({
       await send('transactions-batch-update', {
         updated: ids.map(id => ({ id, schedule: scheduleId })),
       });
+      onScheduleLinked?.(schedules.find(s => s.id === scheduleId));
     }
   }
 
@@ -69,7 +79,7 @@ export function ScheduleLink({
       {({ state: { close } }) => (
         <>
           <ModalHeader
-            title="Link Schedule"
+            title={t('Link Schedule')}
             rightContent={<ModalCloseButton onClick={close} />}
           />
           <View
@@ -81,20 +91,21 @@ export function ScheduleLink({
             }}
           >
             <Text>
-              Choose the schedule{' '}
-              {ids?.length > 1
-                ? `these ${ids.length} transactions belong`
-                : `this transaction belongs`}{' '}
-              to:
+              {t(
+                'Choose the schedule these {{ count }} transactions belong to:',
+                { count: ids?.length ?? 0 },
+              )}
             </Text>
-            <Search
-              inputRef={searchInput}
-              isInModal
-              width={300}
-              placeholder="Filter schedules…"
-              value={filter}
-              onChange={setFilter}
-            />
+            <InitialFocus>
+              <Search
+                inputRef={searchInput}
+                isInModal
+                width={300}
+                placeholder={t('Filter schedules…')}
+                value={filter}
+                onChange={setFilter}
+              />
+            </InitialFocus>
             {ids.length === 1 && (
               <Button
                 variant="primary"
@@ -105,7 +116,7 @@ export function ScheduleLink({
                 }}
               >
                 <SvgAdd style={{ width: '20', padding: '3' }} />
-                Create New
+                <Trans>Create New</Trans>
               </Button>
             )}
           </View>

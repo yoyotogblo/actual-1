@@ -1,10 +1,11 @@
-import type React from 'react';
-import { memo, useRef, useState } from 'react';
+import React, { memo, useRef, useState } from 'react';
 
 import { rolloverBudget } from 'loot-core/src/client/queries';
 import { evalArithmetic } from 'loot-core/src/shared/arithmetic';
+import * as monthUtils from 'loot-core/src/shared/months';
 import { integerToCurrency, amountToInteger } from 'loot-core/src/shared/util';
 
+import { useUndo } from '../../../hooks/useUndo';
 import { SvgCheveronDown } from '../../../icons/v1';
 import { styles, theme, type CSSProperties } from '../../../style';
 import { Button } from '../../common/Button2';
@@ -113,15 +114,25 @@ export function IncomeHeaderMonth() {
 }
 
 type ExpenseGroupMonthProps = {
+  month: string;
   group: { id: string };
 };
 export const ExpenseGroupMonth = memo(function ExpenseGroupMonth({
+  month,
   group,
 }: ExpenseGroupMonthProps) {
   const { id } = group;
 
   return (
-    <View style={{ flex: 1, flexDirection: 'row' }}>
+    <View
+      style={{
+        flex: 1,
+        flexDirection: 'row',
+        backgroundColor: monthUtils.isCurrentMonth(month)
+          ? theme.budgetHeaderCurrentMonth
+          : theme.budgetHeaderOtherMonth,
+      }}
+    >
       <RolloverSheetCell
         name="budgeted"
         width="flex"
@@ -185,18 +196,22 @@ export const ExpenseCategoryMonth = memo(function ExpenseCategoryMonth({
   const balanceMenuTriggerRef = useRef(null);
   const [budgetMenuOpen, setBudgetMenuOpen] = useState(false);
   const [balanceMenuOpen, setBalanceMenuOpen] = useState(false);
-  const [hover, setHover] = useState(false);
 
   const onMenuAction = (...args: Parameters<typeof onBudgetAction>) => {
     onBudgetAction(...args);
     setBudgetMenuOpen(false);
   };
 
+  const { showUndoNotification } = useUndo();
+
   return (
     <View
       style={{
         flex: 1,
         flexDirection: 'row',
+        backgroundColor: monthUtils.isCurrentMonth(month)
+          ? theme.budgetCurrentMonth
+          : theme.budgetOtherMonth,
         '& .hover-visible': {
           opacity: 0,
           transition: 'opacity .25s',
@@ -211,16 +226,14 @@ export const ExpenseCategoryMonth = memo(function ExpenseCategoryMonth({
           flex: 1,
           flexDirection: 'row',
         }}
-        onMouseOverCapture={() => setHover(true)}
-        onMouseLeave={() => {
-          setHover(false);
-        }}
       >
-        {!editing && (hover || budgetMenuOpen) ? (
+        {!editing && (
           <View
             style={{
+              flexDirection: 'row',
               flexShrink: 1,
               paddingLeft: 3,
+              alignItems: 'center',
               justifyContent: 'center',
               borderTopWidth: 1,
               borderBottomWidth: 1,
@@ -255,6 +268,9 @@ export const ExpenseCategoryMonth = memo(function ExpenseCategoryMonth({
                   onMenuAction(month, 'copy-single-last', {
                     category: category.id,
                   });
+                  showUndoNotification({
+                    message: `Budget set to last month’s budget.`,
+                  });
                 }}
                 onSetMonthsAverage={numberOfMonths => {
                   if (
@@ -268,16 +284,22 @@ export const ExpenseCategoryMonth = memo(function ExpenseCategoryMonth({
                   onMenuAction(month, `set-single-${numberOfMonths}-avg`, {
                     category: category.id,
                   });
+                  showUndoNotification({
+                    message: `Budget set to ${numberOfMonths}-month average.`,
+                  });
                 }}
                 onApplyBudgetTemplate={() => {
                   onMenuAction(month, 'apply-single-category-template', {
                     category: category.id,
                   });
+                  showUndoNotification({
+                    message: `Budget template applied.`,
+                  });
                 }}
               />
             </Popover>
           </View>
-        ) : null}
+        )}
         <RolloverSheetCell
           name="budget"
           exposed={editing}
@@ -379,7 +401,10 @@ export const ExpenseCategoryMonth = memo(function ExpenseCategoryMonth({
   );
 });
 
-export function IncomeGroupMonth() {
+type IncomeGroupMonthProps = {
+  month: string;
+};
+export function IncomeGroupMonth({ month }: IncomeGroupMonthProps) {
   return (
     <View style={{ flex: 1 }}>
       <RolloverSheetCell
@@ -390,6 +415,9 @@ export function IncomeGroupMonth() {
           fontWeight: 600,
           paddingRight: styles.monthRightPadding,
           ...styles.tnum,
+          backgroundColor: monthUtils.isCurrentMonth(month)
+            ? theme.budgetHeaderCurrentMonth
+            : theme.budgetHeaderOtherMonth,
         }}
         valueProps={{
           binding: rolloverBudget.groupIncomeReceived,
@@ -426,6 +454,9 @@ export function IncomeCategoryMonth({
           paddingRight: styles.monthRightPadding,
           textAlign: 'right',
           ...(isLast && { borderBottomWidth: 0 }),
+          backgroundColor: monthUtils.isCurrentMonth(month)
+            ? theme.budgetCurrentMonth
+            : theme.budgetOtherMonth,
         }}
       >
         <span onClick={() => onShowActivity(category.id, month)}>

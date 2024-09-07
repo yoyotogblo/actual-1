@@ -87,7 +87,7 @@ export function Modals() {
     .map(({ name, options }) => {
       switch (name) {
         case 'keyboard-shortcuts':
-          return <KeyboardShortcutModal />;
+          return <KeyboardShortcutModal key={name} />;
 
         case 'import-transactions':
           return <ImportTransactions key={name} options={options} />;
@@ -157,6 +157,7 @@ export function Modals() {
           return (
             <ConfirmTransactionDelete
               key={name}
+              message={options.message}
               onConfirm={options.onConfirm}
             />
           );
@@ -342,6 +343,7 @@ export function Modals() {
               transactionIds={options?.transactionIds}
               getTransaction={options?.getTransaction}
               accountName={options?.accountName}
+              onScheduleLinked={options?.onScheduleLinked}
             />
           );
 
@@ -509,6 +511,7 @@ export function Modals() {
               title={options.title}
               month={options.month}
               showToBeBudgeted={options.showToBeBudgeted}
+              category={options.category}
               onSubmit={options.onSubmit}
             />
           );

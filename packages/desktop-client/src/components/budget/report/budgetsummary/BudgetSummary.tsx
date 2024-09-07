@@ -1,5 +1,6 @@
 // @ts-strict-ignore
 import React, { useRef, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 
 import { css } from 'glamor';
 
@@ -25,6 +26,7 @@ type BudgetSummaryProps = {
   month?: string;
 };
 export function BudgetSummary({ month }: BudgetSummaryProps) {
+  const { t } = useTranslation();
   const {
     currentMonth,
     summaryCollapsed: collapsed,
@@ -50,7 +52,10 @@ export function BudgetSummary({ month }: BudgetSummaryProps) {
   return (
     <View
       style={{
-        backgroundColor: theme.tableBackground,
+        backgroundColor:
+          month === currentMonth
+            ? theme.budgetCurrentMonth
+            : theme.budgetOtherMonth,
         boxShadow: styles.cardShadow,
         borderRadius: 6,
         marginLeft: 0,
@@ -85,7 +90,11 @@ export function BudgetSummary({ month }: BudgetSummaryProps) {
           >
             <Button
               variant="bare"
-              aria-label={`${collapsed ? 'Expand' : 'Collapse'} month summary`}
+              aria-label={
+                collapsed
+                  ? t('Expand month summary')
+                  : t('Collapse month summary')
+              }
               className="hover-visible"
               onPress={onToggleSummaryCollapse}
             >
@@ -134,7 +143,7 @@ export function BudgetSummary({ month }: BudgetSummaryProps) {
               <Button
                 ref={triggerRef}
                 variant="bare"
-                aria-label="Menu"
+                aria-label={t('Menu')}
                 onPress={onMenuOpen}
               >
                 <SvgDotsHorizontalTriple
