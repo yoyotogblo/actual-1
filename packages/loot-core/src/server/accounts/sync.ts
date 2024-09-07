@@ -718,7 +718,7 @@ export async function syncAccount(
       );
     }
 
-    const { transactions: originalTransactions } = download;
+    const { transactions: originalTransactions, accountBalance } = download;
 
     if (originalTransactions.length === 0) {
       return { added: [], updated: [] };
