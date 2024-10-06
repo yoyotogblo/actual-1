@@ -747,12 +747,14 @@ export async function syncAccount(
         true,
         useStrictIdChecking,
       );
-      await updateAccountBalance(id, accountCurrentBalance);
+
+      if (accountBalance) await updateAccountBalance(id, accountBalance);
       await updateAccountNotesWithBalance(
         id,
         accountCurrentBalance,
         balanceDate,
       );
+
       return result;
     });
   } else {
