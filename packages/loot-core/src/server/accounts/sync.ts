@@ -63,6 +63,20 @@ async function updateAccountBalance(id, balance) {
   ]);
 }
 
+async function updateAccountNotesWithBalance(id, balance, balanceDate) {
+  const formatter = new Intl.NumberFormat('en-US', {
+    style: 'currency',
+    currency: 'USD',
+  });
+  const accountId = 'account-' + id;
+  const accountNote =
+    'Transactions synced on ' +
+    balanceDate.toLocaleString() +
+    ' with a balance of ' +
+    formatter.format(balance);
+  await send('notes-save', { id: accountId, note: accountNote });
+}
+
 async function getAccountSyncStartDate(id) {
   // TODO: Handle the case where transactions exist in the future
   // (that will make start date after end date)
@@ -761,6 +775,16 @@ async function processBankSyncDownload(
     ...trans,
     account: id,
   }));
+  
+  let accountCurrentBalance;
+  let balanceDate;
+  if (acctRow.account_sync_source === 'simpleFin') {
+    accountCurrentBalance = accountBalance[0].balanceAmount.amount;
+    balanceDate = accountBalance[0].referenceDate;
+  } else if (acctRow.account_sync_source === 'goCardless') {
+    accountCurrentBalance = accountBalance;
+    balanceDate = new Date();
+  }
 
   return runMutator(async () => {
     const result = await reconcileTransactions(
@@ -770,7 +794,12 @@ async function processBankSyncDownload(
       useStrictIdChecking,
     );
 
-    if (accountBalance) await updateAccountBalance(id, accountBalance);
+    if (accountBalance) await updateAccountBalance(id, accountCurrentBalance);
+    await updateAccountNotesWithBalance(
+      id,
+      accountCurrentBalance,
+      balanceDate,
+    );
 
     return result;
   });
