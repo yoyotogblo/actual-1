@@ -1357,6 +1357,7 @@ handlers['load-global-prefs'] = async function () {
     [, encryptKey],
     [, theme],
     [, preferredDarkTheme],
+    [, serverSelfSignedCert],
   ] = await asyncStorage.multiGet([
     'floating-sidebar',
     'max-months',
@@ -1364,6 +1365,7 @@ handlers['load-global-prefs'] = async function () {
     'encrypt-key',
     'theme',
     'preferred-dark-theme',
+    'server-self-signed-cert',
   ]);
   return {
     floatingSidebar: floatingSidebar === 'true' ? true : false,
@@ -1382,6 +1384,7 @@ handlers['load-global-prefs'] = async function () {
       preferredDarkTheme === 'dark' || preferredDarkTheme === 'midnight'
         ? preferredDarkTheme
         : 'dark',
+    serverSelfSignedCert: serverSelfSignedCert || undefined,
   };
 };
 
@@ -1797,7 +1800,7 @@ handlers['download-budget'] = async function ({ fileId }) {
   const id = result.id;
   await handlers['load-budget']({ id });
   result = await handlers['sync-budget']();
-  await handlers['close-budget']();
+
   if (result.error) {
     return result;
   }
