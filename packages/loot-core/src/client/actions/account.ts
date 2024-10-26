@@ -62,10 +62,6 @@ export function linkAccount(
   offBudget?: boolean,
 ) {
   return async (dispatch: Dispatch) => {
-    if (upgradingId) {
-      await dispatch(setAccountsSyncing([upgradingId]));
-    }
-
     await send('gocardless-accounts-link', {
       requisitionId,
       account,
@@ -83,10 +79,6 @@ export function linkAccountSimpleFin(
   offBudget?: boolean,
 ) {
   return async (dispatch: Dispatch) => {
-    if (upgradingId) {
-      await dispatch(setAccountsSyncing([upgradingId]));
-    }
-
     await send('simplefin-accounts-link', {
       externalAccount,
       upgradingId,
@@ -97,7 +89,14 @@ export function linkAccountSimpleFin(
   };
 }
 
-function handleSyncResponse(accountId, res, dispatch) {
+function handleSyncResponse(
+  accountId,
+  res,
+  dispatch,
+  resNewTransactions,
+  resMatchedTransactions,
+  resUpdatedAccounts,
+) {
   const { errors, newTransactions, matchedTransactions, updatedAccounts } = res;
 
   // Mark the account as failed or succeeded (depending on sync output)
@@ -132,13 +131,9 @@ function handleSyncResponse(accountId, res, dispatch) {
     }
   });
 
-  // Set new transactions
-  dispatch({
-    type: constants.SET_NEW_TRANSACTIONS,
-    newTransactions,
-    matchedTransactions,
-    updatedAccounts,
-  });
+  resNewTransactions.push(...newTransactions);
+  resMatchedTransactions.push(...matchedTransactions);
+  resUpdatedAccounts.push(...updatedAccounts);
 
   return newTransactions.length > 0 || matchedTransactions.length > 0;
 }
@@ -175,6 +170,9 @@ export function syncAccounts(id?: string) {
     );
 
     let isSyncSuccess = false;
+    const newTransactions = [];
+    const matchedTransactions = [];
+    const updatedAccounts = [];
 
     if (batchSync && simpleFinAccounts.length) {
       console.log('Using SimpleFin batch sync');
@@ -183,12 +181,14 @@ export function syncAccounts(id?: string) {
         ids: simpleFinAccounts.map(a => a.id),
       });
 
-      let isSyncSuccess = false;
       for (const account of res) {
         const success = handleSyncResponse(
           account.accountId,
           account.res,
           dispatch,
+          newTransactions,
+          matchedTransactions,
+          updatedAccounts,
         );
         if (success) isSyncSuccess = true;
       }
@@ -207,7 +207,14 @@ export function syncAccounts(id?: string) {
         id: accountId,
       });
 
-      const success = handleSyncResponse(accountId, res, dispatch);
+      const success = handleSyncResponse(
+        accountId,
+        res,
+        dispatch,
+        newTransactions,
+        matchedTransactions,
+        updatedAccounts,
+      );
 
       if (success) isSyncSuccess = true;
 
@@ -215,7 +222,15 @@ export function syncAccounts(id?: string) {
       dispatch(setAccountsSyncing(accountIdsToSync.slice(idx + 1)));
     }
 
-    // Rest the sync state back to empty (fallback in case something breaks
+    // Set new transactions
+    dispatch({
+      type: constants.SET_NEW_TRANSACTIONS,
+      newTransactions,
+      matchedTransactions,
+      updatedAccounts,
+    });
+
+    // Reset the sync state back to empty (fallback in case something breaks
     // in the logic above)
     dispatch(setAccountsSyncing([]));
     return isSyncSuccess;

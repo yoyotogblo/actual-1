@@ -68,6 +68,7 @@ export function TransactionList({
   payees,
   balances,
   showBalances,
+  showReconciled,
   showCleared,
   showAccount,
   headerContent,
@@ -105,6 +106,7 @@ export function TransactionList({
 
   const onSave = useCallback(async transaction => {
     const changes = updateTransaction(transactionsLatest.current, transaction);
+    transactionsLatest.current = changes.data;
 
     if (changes.diff.updated.length > 0) {
       const dateChanged = !!changes.diff.updated[0].date;
@@ -203,8 +205,9 @@ export function TransactionList({
       accounts={accounts}
       categoryGroups={categoryGroups}
       payees={payees}
-      showBalances={showBalances}
       balances={balances}
+      showBalances={showBalances}
+      showReconciled={showReconciled}
       showCleared={showCleared}
       showAccount={showAccount}
       showCategory={true}

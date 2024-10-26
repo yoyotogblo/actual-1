@@ -13,12 +13,12 @@ import React, {
 import { useHotkeys } from 'react-hotkeys-hook';
 import { useDispatch } from 'react-redux';
 
+import { css } from '@emotion/css';
 import {
   format as formatDate,
   parseISO,
   isValid as isDateValid,
 } from 'date-fns';
-import { css } from 'glamor';
 
 import { pushModal } from 'loot-core/client/actions';
 import { useCachedSchedules } from 'loot-core/src/client/data-hooks/schedules';
@@ -1809,6 +1809,15 @@ function TransactionTableInner({
     }
   }, [isAddingPrev, props.isAdding, newNavigator]);
 
+  // Don't render reconciled transactions if we're hiding them.
+  const transactionsToRender = useMemo(
+    () =>
+      props.showReconciled
+        ? props.transactions
+        : props.transactions.filter(t => !t.reconciled),
+    [props.transactions, props.showReconciled],
+  );
+
   const renderRow = ({ item, index, editing }) => {
     const {
       transactions,
@@ -1982,7 +1991,7 @@ function TransactionTableInner({
           navigator={tableNavigator}
           ref={tableRef}
           listContainerRef={listContainerRef}
-          items={props.transactions}
+          items={transactionsToRender}
           renderItem={renderRow}
           renderEmpty={renderEmpty}
           loadMore={props.loadMoreTransactions}
@@ -2529,20 +2538,18 @@ function notesTagFormatter(notes, onNotesTagClick) {
                 <Button
                   variant="bare"
                   key={i}
-                  className={String(
-                    css({
-                      display: 'inline-flex',
-                      padding: '3px 7px',
-                      borderRadius: 16,
-                      userSelect: 'none',
-                      backgroundColor: theme.noteTagBackground,
-                      color: theme.noteTagText,
-                      cursor: 'pointer',
-                      '&[data-hovered]': {
-                        backgroundColor: theme.noteTagBackgroundHover,
-                      },
-                    }),
-                  )}
+                  className={css({
+                    display: 'inline-flex',
+                    padding: '3px 7px',
+                    borderRadius: 16,
+                    userSelect: 'none',
+                    backgroundColor: theme.noteTagBackground,
+                    color: theme.noteTagText,
+                    cursor: 'pointer',
+                    '&[data-hovered]': {
+                      backgroundColor: theme.noteTagBackgroundHover,
+                    },
+                  })}
                   onPress={() => {
                     onNotesTagClick?.(validTag);
                   }}
