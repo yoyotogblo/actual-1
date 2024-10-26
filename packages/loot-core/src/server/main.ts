@@ -76,8 +76,6 @@ import { app as toolsApp } from './tools/app';
 import { withUndo, clearUndo, undo, redo } from './undo';
 import { updateVersion } from './update';
 import { uniqueFileName, idFromFileName } from './util/budget-name';
-import { AccountTransactions } from '../../../desktop-client/src/components/mobile/accounts/AccountTransactions';
-import { closeAndDownloadBudget } from 'loot-core/client/actions';
 
 const DEMO_BUDGET_ID = '_demo-budget';
 const TEST_BUDGET_ID = '_test-budget';
@@ -1067,11 +1065,11 @@ function handleSyncResponse(
 ) {
   const { added, updated } = res;
 
-  newTransactions = newTransactions.concat(added);
-  matchedTransactions = matchedTransactions.concat(updated);
+  newTransactions.push(...added);
+  matchedTransactions.push(...updated);
 
   if (added.length > 0 || updated.length > 0) {
-    updatedAccounts = updatedAccounts.concat(acct.id);
+    updatedAccounts.push(acct.id);
   }
 }
 
@@ -1118,9 +1116,9 @@ handlers['accounts-bank-sync'] = async function ({ id }) {
   );
 
   const errors = [];
-  let newTransactions = [];
-  let matchedTransactions = [];
-  let updatedAccounts = [];
+  const newTransactions = [];
+  const matchedTransactions = [];
+  const updatedAccounts = [];
 
   for (let i = 0; i < accounts.length; i++) {
     const acct = accounts[i];
@@ -1163,11 +1161,6 @@ handlers['accounts-bank-sync'] = async function ({ id }) {
 };
 
 handlers['simplefin-batch-sync'] = async function ({ ids }) {
-  const [[, userId], [, userKey]] = await asyncStorage.multiGet([
-    'user-id',
-    'user-key',
-  ]);
-
   const accounts = await db.runQuery(
     `SELECT a.*, b.bank_id as bankId FROM accounts a
          LEFT JOIN banks b ON a.bank = b.id
@@ -1177,35 +1170,41 @@ handlers['simplefin-batch-sync'] = async function ({ ids }) {
     true,
   );
 
-  let res;
-  try {
-    console.group('Bank Sync operation for all accounts');
-    res = await bankSync.SimpleFinBatchSync(
-      userId,
-      userKey,
-      accounts.map(a => ({
-        id: a.id,
-        accountId: a.account_id,
-      })),
-    );
-  } catch (e) {
-    console.error(e);
-  }
+  console.group('Bank Sync operation for all SimpleFin accounts');
+  const res = await bankSync.SimpleFinBatchSync(
+    accounts.map(a => ({
+      id: a.id,
+      accountId: a.account_id,
+    })),
+  );
 
-  let retVal = [];
+  const retVal = [];
   for (const account of res) {
     const errors = [];
-    let newTransactions = [];
-    let matchedTransactions = [];
-    let updatedAccounts = [];
+    const newTransactions = [];
+    const matchedTransactions = [];
+    const updatedAccounts = [];
 
-    handleSyncResponse(
-      account.res,
-      accounts.find(a => a.id === account.accountId),
-      newTransactions,
-      matchedTransactions,
-      updatedAccounts,
-    );
+    if (account.res.error_code) {
+      errors.push(
+        handleSyncError(
+          {
+            type: 'BankSyncError',
+            category: account.res.error_type,
+            code: account.res.error_code,
+          },
+          accounts.find(a => a.id === account.accountId),
+        ),
+      );
+    } else {
+      handleSyncResponse(
+        account.res,
+        accounts.find(a => a.id === account.accountId),
+        newTransactions,
+        matchedTransactions,
+        updatedAccounts,
+      );
+    }
 
     retVal.push({
       accountId: account.accountId,
@@ -1213,12 +1212,14 @@ handlers['simplefin-batch-sync'] = async function ({ ids }) {
     });
   }
 
-  if (!retVal.some(a => a.res.updatedAccounts.length < 1)) {
+  if (retVal.some(a => a.res.updatedAccounts.length > 0)) {
     connection.send('sync-event', {
       type: 'success',
       tables: ['transactions'],
     });
   }
+
+  console.groupEnd();
 
   return retVal;
 };

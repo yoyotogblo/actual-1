@@ -14,6 +14,7 @@ import {
   amountToInteger,
   integerToAmount,
 } from '../../shared/util';
+import { AccountEntity } from '../../types/models';
 import * as db from '../db';
 import { runMutator } from '../mutators';
 import { post } from '../post';
@@ -24,8 +25,30 @@ import { getStartingBalancePayee } from './payees';
 import { title } from './title';
 import { runRules } from './transaction-rules';
 import { batchUpdateTransactions } from './transactions';
-import { SimpleFinAccount } from 'loot-core/types/models';
-import { RevByMonthOfYearRule } from '@rschedule/core/rules/ByMonthOfYear';
+
+// TODO - add types for bank sync transaction data
+interface BankSyncData {
+  transactions: {
+    all: any[]; // eslint-disable-line
+    booked: any[]; // eslint-disable-line
+    pending: any[]; // eslint-disable-line
+  };
+  balances: {
+    balanceAmount: {
+      amount: string;
+      currency: string;
+    };
+    balanceType: string;
+    referenceDate: string;
+  }[];
+  startingBalance: number;
+  error_type: string;
+  error_code: string;
+}
+
+interface SimpleFinBatchSyncResponse {
+  [accountId: AccountEntity['account_id']]: BankSyncData;
+}
 
 function BankSyncError(type: string, code: string) {
   return { type: 'BankSyncError', category: type, code };
@@ -79,11 +102,12 @@ async function updateAccountNotesWithBalance(id, balance, balanceDate) {
 }
 
 async function getAccountSyncStartDate(id) {
-  // TODO: Handle the case where transactions exist in the future
-  // (that will make start date after end date)
+  // there is no way to get the current date in sql.js, the workaround is to
+  // calculate the date in js and pass it into the query
+  const currentDate = new Date().toISOString().slice(0, 19).replace('T', ' ');
   const latestTransaction = await db.first(
-    'SELECT * FROM v_transactions WHERE account = ? ORDER BY date DESC LIMIT 1',
-    [id],
+    'SELECT * FROM v_transactions WHERE account = ? AND date <= ? ORDER BY date DESC LIMIT 1',
+    [id, currentDate],
   );
 
   if (!latestTransaction) return null;
@@ -92,6 +116,7 @@ async function getAccountSyncStartDate(id) {
     'SELECT date FROM v_transactions WHERE account = ? ORDER BY date ASC LIMIT 1',
     [id],
   );
+  if (!startingTransaction) return null;
   const startingDate = db.fromDateRepr(startingTransaction.date);
   // assert(startingTransaction)
 
@@ -213,30 +238,33 @@ async function downloadSimpleFinTransactions(acctId, since) {
     throw BankSyncError(res.error_type, res.error_code);
   }
 
-  let accounts = res;
-  if (!batchSync) {
-    accounts = {
-      placeholder: res,
-    };
-  }
-
   let retVal = {};
-  for (const [accountId, data] of Object.entries(accounts) as [string, any][]) {
-    const {
-      transactions: { all },
-      balances,
-      startingBalance,
-    } = data;
+  if (batchSync) {
+    for (const [accountId, data] of Object.entries(
+      res as SimpleFinBatchSyncResponse,
+    )) {
+      if (accountId === 'errors') continue;
 
-    retVal[accountId] = {
-      transactions: all,
-      accountBalance: balances,
-      startingBalance,
+      const error = res?.errors?.[accountId]?.[0];
+
+      retVal[accountId] = {
+        transactions: data?.transactions?.all,
+        accountBalance: data?.balances,
+        startingBalance: data?.startingBalance,
+      };
+
+      if (error) {
+        retVal[accountId].error_type = error.error_type;
+        retVal[accountId].error_code = error.error_code;
+      }
+    }
+  } else {
+    const singleRes = res as BankSyncData;
+    retVal = {
+      transactions: singleRes.transactions.all,
+      accountBalance: singleRes.balances,
+      startingBalance: singleRes.startingBalance,
     };
-  }
-
-  if (retVal['placeholder']) {
-    retVal = retVal['placeholder'];
   }
 
   console.log('Response:', retVal);
@@ -817,56 +845,37 @@ export async function syncAccount(
   bankId: string,
 ) {
   const acctRow = await db.select('accounts', id);
-  const startDate = await getAccountSyncStartDate(id);
 
-  if (startDate !== null) {
-    let download;
+  const latestTransaction = await getAccountSyncStartDate(id);
+  const syncFromBlank = latestTransaction === null;
+  const syncFromDate =
+    latestTransaction ?? monthUtils.subDays(monthUtils.currentDay(), 90);
 
-    if (acctRow.account_sync_source === 'simpleFin') {
-      download = await downloadSimpleFinTransactions(acctId, startDate);
-    } else if (acctRow.account_sync_source === 'goCardless') {
-      download = await downloadGoCardlessTransactions(
-        userId,
-        userKey,
-        acctId,
-        bankId,
-        startDate,
-        false,
-      );
-    } else {
-      throw new Error(
-        `Unrecognized bank-sync provider: ${acctRow.account_sync_source}`,
-      );
-    }
-
-    return processBankSyncDownload(download, id, acctRow);
+  let download;
+  if (acctRow.account_sync_source === 'simpleFin') {
+    download = await downloadSimpleFinTransactions(acctId, syncFromDate);
+  } else if (acctRow.account_sync_source === 'goCardless') {
+    download = await downloadGoCardlessTransactions(
+      userId,
+      userKey,
+      acctId,
+      bankId,
+      syncFromBlank,
+    );
   } else {
-    let download;
-
-    // Otherwise, download transaction for the past 90 days
-    const startingDay = monthUtils.subDays(monthUtils.currentDay(), 90);
-
-    if (acctRow.account_sync_source === 'simpleFin') {
-      download = await downloadSimpleFinTransactions(acctId, startingDay);
-    } else if (acctRow.account_sync_source === 'goCardless') {
-      download = await downloadGoCardlessTransactions(
-        userId,
-        userKey,
-        acctId,
-        bankId,
-        startingDay,
-        true,
-      );
-    }
-
-    return processBankSyncDownload(download, id, acctRow, true);
+    throw new Error(
+      `Unrecognized bank-sync provider: ${acctRow.account_sync_source}`,
+    );
   }
+
+  return processBankSyncDownload(download, id, acctRow, syncFromBlank);
 }
 
 export async function SimpleFinBatchSync(
-  userId: string,
-  userKey: string,
-  accounts: { id: string; accountId: string }[],
+  accounts: {
+    id: AccountEntity['id'];
+    accountId: AccountEntity['account_id'];
+  }[],
 ) {
   const startDates = await Promise.all(
     accounts.map(async a => getAccountSyncStartDate(a.id)),
@@ -877,7 +886,7 @@ export async function SimpleFinBatchSync(
     startDates,
   );
 
-  let promises = [];
+  const promises = [];
   for (let i = 0; i < startDates.length; i++) {
     const startDate = startDates[i];
     const account = accounts[i];
@@ -885,15 +894,24 @@ export async function SimpleFinBatchSync(
 
     const acctRow = await db.select('accounts', account.id);
 
-    let promise;
-    if (startDate !== null) {
-      promise = processBankSyncDownload(download, account.id, acctRow);
-    } else {
-      promise = processBankSyncDownload(download, account.id, acctRow, true);
+    if (download.error_code) {
+      promises.push(
+        Promise.resolve({
+          accountId: account.id,
+          res: download,
+        }),
+      );
+
+      continue;
     }
 
     promises.push(
-      promise.then(res => ({
+      processBankSyncDownload(
+        download,
+        account.id,
+        acctRow,
+        startDate === null,
+      ).then(res => ({
         accountId: account.id,
         res,
       })),
