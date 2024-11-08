@@ -193,7 +193,10 @@ async function downloadGoCardlessTransactions(
   }
 }
 
-async function downloadSimpleFinTransactions(acctId, since) {
+async function downloadSimpleFinTransactions(
+  acctId: AccountEntity['id'] | AccountEntity['id'][],
+  since: string | string[],
+) {
   const userToken = await asyncStorage.getItem('user-token');
   if (!userToken) return;
 
@@ -483,6 +486,12 @@ export async function reconcileTransactions(
       }
     }
   }
+
+  // Maintain the sort order of the server
+  const now = Date.now();
+  added.forEach((t, index) => {
+    t.sort_order ??= now - index;
+  });
 
   if (!isPreview) {
     await createNewPayees(payeesToCreate, [...added, ...updated]);
@@ -834,6 +843,7 @@ export async function syncAccount(
       userKey,
       acctId,
       bankId,
+      syncStartDate,
       newAccount,
     );
   } else {
@@ -861,12 +871,13 @@ export async function SimpleFinBatchSync(
   );
 
   const promises = [];
-  for (let i = 0; i < startDates.length; i++) {
-    const startDate = startDates[i];
+  for (let i = 0; i < accounts.length; i++) {
     const account = accounts[i];
     const download = res[account.accountId];
 
     const acctRow = await db.select('accounts', account.id);
+    const oldestTransaction = await getAccountOldestTransaction(account.id);
+    const newAccount = oldestTransaction == null;
 
     if (download.error_code) {
       promises.push(
@@ -880,15 +891,12 @@ export async function SimpleFinBatchSync(
     }
 
     promises.push(
-      processBankSyncDownload(
-        download,
-        account.id,
-        acctRow,
-        startDate === null,
-      ).then(res => ({
-        accountId: account.id,
-        res,
-      })),
+      processBankSyncDownload(download, account.id, acctRow, newAccount).then(
+        res => ({
+          accountId: account.id,
+          res,
+        }),
+      ),
     );
   }
 
