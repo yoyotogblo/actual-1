@@ -814,9 +814,11 @@ async function processBankSyncDownload(
       useStrictIdChecking,
     );
 
-    if (accountBalance) await updateAccountBalance(id, accountCurrentBalance);
-    await updateAccountNotesWithBalance(id, accountCurrentBalance, balanceDate);
-
+    if (accountBalance) {
+      await updateAccountBalance(id, accountCurrentBalance);
+      await updateAccountNotesWithBalance(id, accountCurrentBalance, balanceDate);
+    }
+	
     return result;
   });
 }
