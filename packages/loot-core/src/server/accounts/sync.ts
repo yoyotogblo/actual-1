@@ -816,7 +816,11 @@ async function processBankSyncDownload(
 
     if (accountBalance) {
       await updateAccountBalance(id, accountCurrentBalance);
-      await updateAccountNotesWithBalance(id, accountCurrentBalance, balanceDate);
+      await updateAccountNotesWithBalance(
+        id, 
+        accountCurrentBalance, 
+        balanceDate,
+      );
     }
 	
     return result;
