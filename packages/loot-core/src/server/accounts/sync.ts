@@ -1,4 +1,5 @@
 // @ts-strict-ignore
+import { send } from '@actual-app/api/injected';
 import * as dateFns from 'date-fns';
 import { v4 as uuidv4 } from 'uuid';
 
@@ -67,6 +68,20 @@ async function updateAccountBalance(id, balance) {
     amountToInteger(balance),
     id,
   ]);
+}
+
+async function updateAccountNotesWithBalance(id, balance, balanceDate) {
+  const formatter = new Intl.NumberFormat('en-US', {
+    style: 'currency',
+    currency: 'USD',
+  });
+  const accountId = 'account-' + id;
+  const accountNote =
+    'Transactions synced on ' +
+    balanceDate.toLocaleString() +
+    ' with a balance of ' +
+    formatter.format(balance);
+  await send('notes-save', { id: accountId, note: accountNote });
 }
 
 async function getAccountOldestTransaction(id): Promise<TransactionEntity> {
@@ -781,6 +796,16 @@ async function processBankSyncDownload(
     account: id,
   }));
 
+  let accountCurrentBalance;
+  let balanceDate;
+  if (acctRow.account_sync_source === 'simpleFin') {
+    accountCurrentBalance = accountBalance[0].balanceAmount.amount;
+    balanceDate = accountBalance[0].referenceDate;
+  } else if (acctRow.account_sync_source === 'goCardless') {
+    accountCurrentBalance = accountBalance;
+    balanceDate = new Date();
+  }
+
   return runMutator(async () => {
     const result = await reconcileTransactions(
       id,
@@ -789,7 +814,14 @@ async function processBankSyncDownload(
       useStrictIdChecking,
     );
 
-    if (accountBalance) await updateAccountBalance(id, accountBalance);
+    if (accountBalance) {
+      await updateAccountBalance(id, accountCurrentBalance);
+      await updateAccountNotesWithBalance(
+        id,
+        accountCurrentBalance,
+        balanceDate,
+      );
+    }
 
     return result;
   });
