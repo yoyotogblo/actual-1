@@ -817,12 +817,12 @@ async function processBankSyncDownload(
     if (accountBalance) {
       await updateAccountBalance(id, accountCurrentBalance);
       await updateAccountNotesWithBalance(
-        id, 
-        accountCurrentBalance, 
+        id,
+        accountCurrentBalance,
         balanceDate,
       );
     }
-	
+
     return result;
   });
 }
