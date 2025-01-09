@@ -12,7 +12,6 @@ import {
   generateAccount,
   generateCategoryGroups,
 } from 'loot-core/src/mocks';
-import { TestProvider } from 'loot-core/src/mocks/redux';
 import { initServer } from 'loot-core/src/platform/client/fetch';
 import {
   addSplitTransaction,
@@ -22,8 +21,10 @@ import {
 } from 'loot-core/src/shared/transactions';
 import { integerToCurrency } from 'loot-core/src/shared/util';
 
+import { AuthProvider } from '../../auth/AuthProvider';
 import { SelectedProviderWithItems } from '../../hooks/useSelected';
 import { SplitsExpandedProvider } from '../../hooks/useSplitsExpanded';
+import { TestProvider } from '../../redux/mock';
 import { ResponsiveProvider } from '../responsive/ResponsiveProvider';
 
 import { TransactionTable } from './TransactionsTable';
@@ -148,33 +149,35 @@ function LiveTransactionTable(props) {
   return (
     <TestProvider>
       <ResponsiveProvider>
-        <SpreadsheetProvider>
-          <SchedulesProvider>
-            <SelectedProviderWithItems
-              name="transactions"
-              items={transactions}
-              fetchAllIds={() => transactions.map(t => t.id)}
-            >
-              <SplitsExpandedProvider>
-                <TransactionTable
-                  {...props}
-                  transactions={transactions}
-                  loadMoreTransactions={() => {}}
-                  commonPayees={[]}
-                  payees={payees}
-                  addNotification={n => console.log(n)}
-                  onSave={onSave}
-                  onSplit={onSplit}
-                  onAdd={onAdd}
-                  onAddSplit={onAddSplit}
-                  onCreatePayee={onCreatePayee}
-                  showSelection={true}
-                  allowSplitTransaction={true}
-                />
-              </SplitsExpandedProvider>
-            </SelectedProviderWithItems>
-          </SchedulesProvider>
-        </SpreadsheetProvider>
+        <AuthProvider>
+          <SpreadsheetProvider>
+            <SchedulesProvider>
+              <SelectedProviderWithItems
+                name="transactions"
+                items={transactions}
+                fetchAllIds={() => transactions.map(t => t.id)}
+              >
+                <SplitsExpandedProvider>
+                  <TransactionTable
+                    {...props}
+                    transactions={transactions}
+                    loadMoreTransactions={() => {}}
+                    commonPayees={[]}
+                    payees={payees}
+                    addNotification={n => console.log(n)}
+                    onSave={onSave}
+                    onSplit={onSplit}
+                    onAdd={onAdd}
+                    onAddSplit={onAddSplit}
+                    onCreatePayee={onCreatePayee}
+                    showSelection={true}
+                    allowSplitTransaction={true}
+                  />
+                </SplitsExpandedProvider>
+              </SelectedProviderWithItems>
+            </SchedulesProvider>
+          </SpreadsheetProvider>
+        </AuthProvider>
       </ResponsiveProvider>
     </TestProvider>
   );

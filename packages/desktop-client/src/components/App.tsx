@@ -9,7 +9,6 @@ import {
 } from 'react-error-boundary';
 import { HotkeysProvider } from 'react-hotkeys-hook';
 import { useTranslation } from 'react-i18next';
-import { useDispatch } from 'react-redux';
 import { BrowserRouter } from 'react-router-dom';
 
 import {
@@ -26,8 +25,10 @@ import {
   send,
 } from 'loot-core/src/platform/client/fetch';
 
+import { useActions } from '../hooks/useActions';
 import { useMetadataPref } from '../hooks/useMetadataPref';
 import { installPolyfills } from '../polyfills';
+import { useDispatch, useSelector } from '../redux';
 import { styles, hasHiddenScrollbars, ThemeStyle, useTheme } from '../style';
 import { ExposeNavigate } from '../util/router-tools';
 
@@ -49,6 +50,8 @@ function AppInner() {
   const { t } = useTranslation();
   const { showBoundary: showErrorBoundary } = useErrorBoundary();
   const dispatch = useDispatch();
+  const userData = useSelector(state => state.user.data);
+  const { signOut, addNotification } = useActions();
 
   const maybeUpdate = async <T,>(cb?: () => T): Promise<T> => {
     if (global.Actual.isUpdateReadyForDownload()) {
@@ -122,6 +125,22 @@ function AppInner() {
   useEffect(() => {
     global.Actual.updateAppMenu(budgetId);
   }, [budgetId]);
+
+  useEffect(() => {
+    if (userData?.tokenExpired) {
+      addNotification({
+        type: 'error',
+        id: 'login-expired',
+        title: t('Login expired'),
+        sticky: true,
+        message: t('Login expired, please log in again.'),
+        button: {
+          title: t('Go to login'),
+          action: signOut,
+        },
+      });
+    }
+  }, [userData, userData?.tokenExpired]);
 
   return budgetId ? <FinancesApp /> : <ManagementApp />;
 }

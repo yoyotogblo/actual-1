@@ -10,23 +10,16 @@ import './i18n';
 import React from 'react';
 import { Provider } from 'react-redux';
 
+import { bindActionCreators } from '@reduxjs/toolkit';
 import { createRoot } from 'react-dom/client';
-import {
-  createStore,
-  combineReducers,
-  applyMiddleware,
-  bindActionCreators,
-} from 'redux';
-import thunk from 'redux-thunk';
 
 import * as actions from 'loot-core/src/client/actions';
-import * as constants from 'loot-core/src/client/constants';
 import { runQuery } from 'loot-core/src/client/query-helpers';
-import { reducers } from 'loot-core/src/client/reducers';
-import { initialState as initialAppState } from 'loot-core/src/client/reducers/app';
+import { store } from 'loot-core/src/client/store';
 import { send } from 'loot-core/src/platform/client/fetch';
 import { q } from 'loot-core/src/shared/query';
 
+import { AuthProvider } from './auth/AuthProvider';
 import { App } from './components/App';
 import { ServerProvider } from './components/ServerContext';
 import { handleGlobalEvents } from './global-events';
@@ -36,34 +29,6 @@ import { type BoundActions } from './hooks/useActions';
 // focus outline appear from keyboard events.
 import 'focus-visible';
 
-const appReducer = combineReducers(reducers);
-function rootReducer(state, action) {
-  if (action.type === constants.CLOSE_BUDGET) {
-    // Reset the state and only keep around things intentionally. This
-    // blows away everything else
-    state = {
-      budgets: state.budgets,
-      user: state.user,
-      prefs: { local: null, global: state.prefs.global },
-      app: {
-        ...initialAppState,
-        updateInfo: state.updateInfo,
-        showUpdateNotification: state.showUpdateNotification,
-        managerHasInitialized: state.app.managerHasInitialized,
-        loadingText: state.app.loadingText,
-      },
-    };
-  }
-
-  return appReducer(state, action);
-}
-
-const compose = window['__REDUX_DEVTOOLS_EXTENSION_COMPOSE__'] || (f => f);
-const store = createStore(
-  rootReducer,
-  undefined,
-  compose(applyMiddleware(thunk)),
-);
 const boundActions = bindActionCreators(
   actions,
   store.dispatch,
@@ -104,7 +69,9 @@ const root = createRoot(container);
 root.render(
   <Provider store={store}>
     <ServerProvider>
-      <App />
+      <AuthProvider>
+        <App />
+      </AuthProvider>
     </ServerProvider>
   </Provider>,
 );
