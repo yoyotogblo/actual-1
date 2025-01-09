@@ -18,7 +18,7 @@ import {
   type GroupedEntity,
   type IntervalEntity,
 } from 'loot-core/src/types/models/reports';
-import { type LocalPrefs } from 'loot-core/types/prefs';
+import { type SyncedPrefs } from 'loot-core/types/prefs';
 
 import {
   categoryLists,
@@ -50,7 +50,7 @@ export type createCustomSpreadsheetProps = {
   payees?: PayeeEntity[];
   accounts?: AccountEntity[];
   graphType?: string;
-  firstDayOfWeekIdx?: LocalPrefs['firstDayOfWeekIdx'];
+  firstDayOfWeekIdx?: SyncedPrefs['firstDayOfWeekIdx'];
   setDataCheck?: (value: boolean) => void;
 };
 
@@ -145,6 +145,8 @@ export function createCustomSpreadsheet({
     let netAssets = 0;
     let netDebts = 0;
 
+    const groupsByCategory =
+      groupByLabel === 'category' || groupByLabel === 'categoryGroup';
     const intervalData = intervals.reduce(
       (arr: IntervalEntity[], intervalItem, index) => {
         let perIntervalAssets = 0;
@@ -163,11 +165,13 @@ export function createCustomSpreadsheet({
             showOffBudget,
             showHiddenCategories,
             showUncategorized,
+            groupsByCategory,
           )
             .filter(
               asset =>
                 asset.date === intervalItem &&
-                asset[groupByLabel] === (item.id ?? null),
+                (asset[groupByLabel] === (item.id ?? null) ||
+                  (item.uncategorized_id && groupsByCategory)),
             )
             .reduce((a, v) => (a = a + v.amount), 0);
           perIntervalAssets += intervalAssets;
@@ -178,11 +182,13 @@ export function createCustomSpreadsheet({
             showOffBudget,
             showHiddenCategories,
             showUncategorized,
+            groupsByCategory,
           )
             .filter(
               debt =>
                 debt.date === intervalItem &&
-                debt[groupByLabel] === (item.id ?? null),
+                (debt[groupByLabel] === (item.id ?? null) ||
+                  (item.uncategorized_id && groupsByCategory)),
             )
             .reduce((a, v) => (a = a + v.amount), 0);
           perIntervalDebts += intervalDebts;

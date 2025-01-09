@@ -86,7 +86,10 @@ export function addTransactions(
 }
 
 export function importTransactions(accountId, transactions) {
-  return send('api/transactions-import', { accountId, transactions });
+  return send('api/transactions-import', {
+    accountId,
+    transactions,
+  });
 }
 
 export function getTransactions(accountId, startDate, endDate) {
@@ -205,8 +208,8 @@ export function updateRule(rule) {
   return send('api/rule-update', { rule });
 }
 
-export function deleteRule(id) {
-  return send('api/rule-delete', { id });
+export function deleteRule(id: string) {
+  return send('api/rule-delete', id);
 }
 
 export function holdBudgetForNextMonth(month, amount) {

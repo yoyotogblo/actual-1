@@ -1,83 +1,61 @@
-import React, { useState } from 'react';
-import { useDispatch } from 'react-redux';
+import React from 'react';
+import { Trans } from 'react-i18next';
 
-import { loadPrefs } from 'loot-core/src/client/actions';
-import { useSpreadsheet } from 'loot-core/src/client/SpreadsheetProvider';
-import * as monthUtils from 'loot-core/src/shared/months';
-
-import { useLocalPref } from '../../hooks/useLocalPref';
-import { switchBudgetType } from '../budget/util';
-import { ButtonWithLoading } from '../common/Button2';
+import { useSyncedPref } from '../../hooks/useSyncedPref';
+import { Button } from '../common/Button2';
 import { Link } from '../common/Link';
 import { Text } from '../common/Text';
 
 import { Setting } from './UI';
 
 export function BudgetTypeSettings() {
-  const dispatch = useDispatch();
-  const [budgetType = 'rollover'] = useLocalPref('budgetType');
-  const [loading, setLoading] = useState(false);
-
-  const currentMonth = monthUtils.currentMonth();
-  const [startMonthPref] = useLocalPref('budget.startMonth');
-  const startMonth = startMonthPref || currentMonth;
-  const spreadsheet = useSpreadsheet();
+  const [budgetType = 'rollover', setBudgetType] = useSyncedPref('budgetType');
 
   function onSwitchType() {
-    setLoading(true);
-
-    if (!loading) {
-      const newBudgetType = budgetType === 'rollover' ? 'report' : 'rollover';
-
-      switchBudgetType(
-        newBudgetType,
-        spreadsheet,
-        {
-          start: startMonth,
-          end: startMonth,
-        },
-        startMonth,
-        async () => {
-          dispatch(loadPrefs());
-          setLoading(false);
-        },
-      );
-    }
+    const newBudgetType = budgetType === 'rollover' ? 'report' : 'rollover';
+    setBudgetType(newBudgetType);
   }
 
   return (
     <Setting
       primaryAction={
-        <ButtonWithLoading isLoading={loading} onPress={onSwitchType}>
-          Switch to {budgetType === 'report' ? 'envelope' : 'tracking'}{' '}
-          budgeting
-        </ButtonWithLoading>
+        <Button onPress={onSwitchType}>
+          {budgetType === 'report' ? (
+            <Trans>Switch to envelope budgeting</Trans>
+          ) : (
+            <Trans>Switch to tracking budgeting</Trans>
+          )}
+        </Button>
       }
     >
       <Text>
-        <strong>Envelope budgeting</strong> (recommended) digitally mimics
-        physical envelope budgeting system by allocating funds into virtual
-        envelopes for different expenses. It helps track spending and ensure you
-        don‘t overspend in any category.{' '}
+        <Trans>
+          <strong>Envelope budgeting</strong> (recommended) digitally mimics
+          physical envelope budgeting system by allocating funds into virtual
+          envelopes for different expenses. It helps track spending and ensure
+          you don‘t overspend in any category.
+        </Trans>{' '}
         <Link
           variant="external"
           to="https://actualbudget.org/docs/getting-started/envelope-budgeting"
           linkColor="purple"
         >
-          Learn more…
+          <Trans>Learn more</Trans>
         </Link>
       </Text>
       <Text>
-        With <strong>tracking budgeting</strong>, category balances reset each
-        month, and funds are managed using a “Saved” metric instead of “To Be
-        Budgeted.” Income is forecasted to plan future spending, rather than
-        relying on current available funds.{' '}
+        <Trans>
+          With <strong>tracking budgeting</strong>, category balances reset each
+          month, and funds are managed using a “Saved” metric instead of “To Be
+          Budgeted.” Income is forecasted to plan future spending, rather than
+          relying on current available funds.
+        </Trans>{' '}
         <Link
           variant="external"
-          to="https://actualbudget.org/docs/experimental/report-budget"
+          to="https://actualbudget.org/docs/getting-started/tracking-budget"
           linkColor="purple"
         >
-          Learn more…
+          <Trans>Learn more</Trans>
         </Link>
       </Text>
     </Setting>

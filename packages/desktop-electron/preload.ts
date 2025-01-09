@@ -13,7 +13,6 @@ contextBridge.exposeInMainWorld('Actual', {
   IS_DEV,
   ACTUAL_VERSION: VERSION,
   logToTerminal: console.log,
-
   ipcConnect: (
     func: (payload: {
       on: IpcRenderer['on'];
@@ -30,8 +29,14 @@ contextBridge.exposeInMainWorld('Actual', {
     });
   },
 
+  startOAuthServer: () => ipcRenderer.invoke('start-oauth-server'),
+
   relaunch: () => {
     ipcRenderer.invoke('relaunch');
+  },
+
+  restartElectronServer: () => {
+    ipcRenderer.invoke('restart-server');
   },
 
   openFileDialog: (opts: OpenFileDialogPayload) => {
@@ -62,11 +67,26 @@ contextBridge.exposeInMainWorld('Actual', {
     ipcRenderer.send('update-menu', budgetId);
   },
 
+  // No auto-updates in the desktop app
+  isUpdateReadyForDownload: () => false,
+  waitForUpdateReadyForDownload: () => new Promise<void>(() => {}),
+
   getServerSocket: () => {
     return null;
   },
 
   setTheme: (theme: string) => {
     ipcRenderer.send('set-theme', theme);
+  },
+
+  moveBudgetDirectory: (
+    currentBudgetDirectory: string,
+    newDirectory: string,
+  ) => {
+    return ipcRenderer.invoke(
+      'move-budget-directory',
+      currentBudgetDirectory,
+      newDirectory,
+    );
   },
 });

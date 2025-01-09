@@ -1,7 +1,8 @@
 // @ts-strict-ignore
-import React, { useState } from 'react';
+import React, { useState, type CSSProperties } from 'react';
+import { useTranslation } from 'react-i18next';
 
-import { css } from 'glamor';
+import { css } from '@emotion/css';
 import {
   LineChart,
   Line,
@@ -26,9 +27,7 @@ import { useAccounts } from '../../../hooks/useAccounts';
 import { useCategories } from '../../../hooks/useCategories';
 import { useNavigate } from '../../../hooks/useNavigate';
 import { usePrivacyMode } from '../../../hooks/usePrivacyMode';
-import { useResponsive } from '../../../ResponsiveProvider';
 import { theme } from '../../../style';
-import { type CSSProperties } from '../../../style';
 import { AlignedText } from '../../common/AlignedText';
 import { Container } from '../Container';
 import { getCustomTick } from '../getCustomTick';
@@ -59,11 +58,12 @@ const CustomTooltip = ({
   active,
   payload,
 }: CustomTooltipProps) => {
+  const { t } = useTranslation();
   if (active && payload && payload.length) {
     let sumTotals = 0;
     return (
       <div
-        className={`${css({
+        className={css({
           zIndex: 1000,
           pointerEvents: 'none',
           borderRadius: 2,
@@ -71,7 +71,7 @@ const CustomTooltip = ({
           backgroundColor: theme.menuBackground,
           color: theme.menuItemText,
           padding: 10,
-        })}`}
+        })}
       >
         <div>
           <div style={{ marginBottom: 10 }}>
@@ -99,7 +99,7 @@ const CustomTooltip = ({
               })}
             {payload.length > 5 && compact && '...'}
             <AlignedText
-              left="Total"
+              left={t('Total')}
               right={amountToCurrency(sumTotals)}
               style={{
                 fontWeight: 600,
@@ -143,7 +143,6 @@ export function LineGraph({
   const privacyMode = usePrivacyMode();
   const [pointer, setPointer] = useState('');
   const [tooltip, setTooltip] = useState('');
-  const { isNarrowWidth } = useResponsive();
 
   const largestValue = data.intervalData
     .map(c => c[balanceTypeOp])
@@ -239,7 +238,7 @@ export function LineGraph({
                           setTooltip('');
                         },
                         onClick: (e, payload) =>
-                          !isNarrowWidth &&
+                          ((compact && showTooltip) || !compact) &&
                           !['Group', 'Interval'].includes(groupBy) &&
                           onShowActivity(e, entry.id, payload),
                       }}

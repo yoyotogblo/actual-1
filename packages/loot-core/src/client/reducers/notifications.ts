@@ -3,8 +3,9 @@ import * as constants from '../constants';
 import type { Action } from '../state-types';
 import type { NotificationsState } from '../state-types/notifications';
 
-const initialState = {
+export const initialState = {
   notifications: [],
+  inset: {},
 };
 
 export function update(
@@ -25,6 +26,11 @@ export function update(
       return {
         ...state,
         notifications: state.notifications.filter(n => n.id !== action.id),
+      };
+    case constants.SET_NOTIFICATION_INSET:
+      return {
+        ...state,
+        inset: action.inset,
       };
     default:
   }

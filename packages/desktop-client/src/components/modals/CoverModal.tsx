@@ -1,41 +1,52 @@
-import React, { useCallback, useEffect, useMemo, useState } from 'react';
-import { useDispatch } from 'react-redux';
+import React, { useCallback, useMemo, useState } from 'react';
+import { Trans, useTranslation } from 'react-i18next';
 
 import { pushModal } from 'loot-core/client/actions';
+import { type CategoryEntity } from 'loot-core/src/types/models';
 
 import { useCategories } from '../../hooks/useCategories';
-import { useInitialMount } from '../../hooks/useInitialMount';
+import { useDispatch } from '../../redux';
 import { styles } from '../../style';
-import { addToBeBudgetedGroup } from '../budget/util';
+import {
+  addToBeBudgetedGroup,
+  removeCategoriesFromGroups,
+} from '../budget/util';
 import { Button } from '../common/Button2';
-import { Modal, ModalCloseButton, ModalHeader } from '../common/Modal2';
+import { Modal, ModalCloseButton, ModalHeader } from '../common/Modal';
 import { View } from '../common/View';
 import { FieldLabel, TapField } from '../mobile/MobileForms';
 
 type CoverModalProps = {
   title: string;
+  categoryId?: CategoryEntity['id'];
   month: string;
   showToBeBudgeted?: boolean;
-  onSubmit: (categoryId: string) => void;
+  onSubmit: (categoryId: CategoryEntity['id']) => void;
 };
 
 export function CoverModal({
   title,
+  categoryId,
   month,
   showToBeBudgeted = true,
   onSubmit,
 }: CoverModalProps) {
+  const { t } = useTranslation();
+
   const { grouped: originalCategoryGroups } = useCategories();
   const [categoryGroups, categories] = useMemo(() => {
-    const filteredCategoryGroups = originalCategoryGroups.filter(
-      g => !g.is_income,
+    const expenseGroups = originalCategoryGroups.filter(g => !g.is_income);
+    const categoryGroups = showToBeBudgeted
+      ? addToBeBudgetedGroup(expenseGroups)
+      : expenseGroups;
+    const filteredCategoryGroups = categoryId
+      ? removeCategoriesFromGroups(categoryGroups, categoryId)
+      : categoryGroups;
+    const filteredCategoryies = filteredCategoryGroups.flatMap(
+      g => g.categories || [],
     );
-    const expenseGroups = showToBeBudgeted
-      ? addToBeBudgetedGroup(filteredCategoryGroups)
-      : filteredCategoryGroups;
-    const expenseCategories = expenseGroups.flatMap(g => g.categories || []);
-    return [expenseGroups, expenseCategories];
-  }, [originalCategoryGroups, showToBeBudgeted]);
+    return [filteredCategoryGroups, filteredCategoryies];
+  }, [categoryId, originalCategoryGroups, showToBeBudgeted]);
 
   const [fromCategoryId, setFromCategoryId] = useState<string | null>(null);
   const dispatch = useDispatch();
@@ -58,14 +69,6 @@ export function CoverModal({
     }
   };
 
-  const initialMount = useInitialMount();
-
-  useEffect(() => {
-    if (initialMount) {
-      onCategoryClick();
-    }
-  }, [initialMount, onCategoryClick]);
-
   const fromCategory = categories.find(c => c.id === fromCategoryId);
 
   return (
@@ -74,10 +77,10 @@ export function CoverModal({
         <>
           <ModalHeader
             title={title}
-            rightContent={<ModalCloseButton onClick={close} />}
+            rightContent={<ModalCloseButton onPress={close} />}
           />
           <View>
-            <FieldLabel title="Cover from category:" />
+            <FieldLabel title={t('Cover from category:')} />
             <TapField value={fromCategory?.name} onClick={onCategoryClick} />
           </View>
 
@@ -100,7 +103,7 @@ export function CoverModal({
                 close();
               }}
             >
-              Transfer
+              <Trans>Transfer</Trans>
             </Button>
           </View>
         </>

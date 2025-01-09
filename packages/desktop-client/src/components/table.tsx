@@ -4,7 +4,6 @@ import React, {
   useState,
   useCallback,
   useRef,
-  useEffect,
   useLayoutEffect,
   useImperativeHandle,
   useMemo,
@@ -15,10 +14,11 @@ import React, {
   type ReactElement,
   type Ref,
   type MutableRefObject,
+  type CSSProperties,
 } from 'react';
-import { useStore } from 'react-redux';
 import AutoSizer from 'react-virtualized-auto-sizer';
 
+import { useModalState } from '../hooks/useModalState';
 import {
   AvoidRefocusScrollProvider,
   useProperFocus,
@@ -27,11 +27,11 @@ import { useSelectedItems } from '../hooks/useSelected';
 import { AnimatedLoading } from '../icons/AnimatedLoading';
 import { SvgDelete, SvgExpandArrow } from '../icons/v0';
 import { SvgCheckmark } from '../icons/v1';
-import { type CSSProperties, styles, theme } from '../style';
+import { styles, theme } from '../style';
 
-import { Button } from './common/Button';
+import { Button } from './common/Button2';
 import { Input } from './common/Input';
-import { Menu } from './common/Menu';
+import { Menu, type MenuItem } from './common/Menu';
 import { Popover } from './common/Popover';
 import { Text } from './common/Text';
 import { View } from './common/View';
@@ -197,11 +197,6 @@ export function Cell({
         privacyFilter={mergeConditionalPrivacyFilterProps(
           {
             activationFilters: [!focused, !exposed],
-            style: {
-              position: 'absolute',
-              width: '100%',
-              height: '100%',
-            },
           },
           privacyFilter,
         )}
@@ -705,10 +700,8 @@ export type SheetCellProps<
   textAlign?: CSSProperties['textAlign'];
 };
 export function SheetCell<
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  SheetName extends SheetNames = any,
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  FieldName extends SheetFields<SheetName> = any,
+  SheetName extends SheetNames,
+  FieldName extends SheetFields<SheetName>,
 >({
   valueProps,
   valueStyle,
@@ -817,30 +810,45 @@ export function TableHeader({
   );
 }
 
-export function SelectedItemsButton({ name, items, onSelect }) {
+type SelectedItemsButtonProps<Name extends string> = {
+  id: string;
+  name: ((count: number) => string) | string;
+  items: MenuItem<Name>[];
+  onSelect: (name: Name, items: string[]) => void;
+};
+
+export function SelectedItemsButton<Name extends string>({
+  id,
+  name,
+  items,
+  onSelect,
+}: SelectedItemsButtonProps<Name>) {
   const selectedItems = useSelectedItems();
-  const [menuOpen, setMenuOpen] = useState(null);
+  const [menuOpen, setMenuOpen] = useState(false);
   const triggerRef = useRef(null);
 
   if (selectedItems.size === 0) {
     return null;
   }
 
+  const buttonLabel =
+    typeof name === 'function' ? name(selectedItems.size) : name;
+
   return (
     <View style={{ marginLeft: 10, flexShrink: 0 }}>
       <Button
         ref={triggerRef}
-        type="bare"
+        variant="bare"
         style={{ color: theme.pageTextPositive }}
-        onClick={() => setMenuOpen(true)}
-        data-testid={name + '-select-button'}
+        onPress={() => setMenuOpen(true)}
+        data-testid={id + '-select-button'}
       >
         <SvgExpandArrow
           width={8}
           height={8}
           style={{ marginRight: 5, color: theme.pageText }}
         />
-        {selectedItems.size} {name}
+        {buttonLabel}
       </Button>
 
       <Popover
@@ -852,7 +860,7 @@ export function SelectedItemsButton({ name, items, onSelect }) {
         }}
         isOpen={menuOpen}
         onOpenChange={() => setMenuOpen(false)}
-        data-testid={name + '-select-tooltip'}
+        data-testid={id + '-select-tooltip'}
       >
         <Menu
           onMenuSelect={name => {
@@ -914,13 +922,13 @@ type TableProps<T extends TableItem = TableItem> = {
     position: number;
   }) => ReactNode;
   renderEmpty?: ReactNode | (() => ReactNode);
-  getItemKey?: (index: number) => TableItem['id'];
+  getItemKey?: (index: number) => T['id'];
   loadMore?: () => void;
   style?: CSSProperties;
   navigator?: ReturnType<typeof useTableNavigator<T>>;
   listContainerRef?: MutableRefObject<HTMLDivElement>;
   onScroll?: () => void;
-  isSelected?: (id: TableItem['id']) => boolean;
+  isSelected?: (id: T['id']) => boolean;
   saveScrollWidth?: (parent, child) => void;
 };
 
@@ -1066,7 +1074,6 @@ export const Table = forwardRef(
             zIndex: editing || selected ? 101 : 'auto',
             transform: 'translateY(var(--pos))',
           }}
-          // @ts-expect-error not a recognised style attribute
           nativeStyle={{ '--pos': `${style.top - 1}px` }}
           data-focus-key={item.id}
         >
@@ -1204,7 +1211,7 @@ export const Table = forwardRef(
 // @ts-expect-error fix me
 Table.displayName = 'Table';
 
-export type TableNavigator<T extends TableItem> = {
+type TableNavigator<T extends TableItem> = {
   onEdit: (id: T['id'], field?: string) => void;
   editingId: T['id'];
   focusedField: string;
@@ -1221,17 +1228,13 @@ export function useTableNavigator<T extends TableItem>(
   const containerRef = useRef<HTMLDivElement>();
 
   // See `onBlur` for why we need this
-  const store = useStore();
-  const modalStackLength = useRef(0);
+  const modalState = useModalState();
+  const modalStackLength = useRef(modalState.modalStack.length);
 
   // onEdit is passed to children, so make sure it maintains identity
   const onEdit = useCallback((id: T['id'], field?: string) => {
     setEditingId(id);
     setFocusedField(id ? field : null);
-  }, []);
-
-  useEffect(() => {
-    modalStackLength.current = store.getState().modals.modalStack.length;
   }, []);
 
   function flashInput() {
@@ -1388,7 +1391,7 @@ export function useTableNavigator<T extends TableItem>(
         // modal just opened. This way the field still shows an
         // input, and it will be refocused when the modal closes.
         const prevNumModals = modalStackLength.current;
-        const numModals = store.getState().modals.modalStack.length;
+        const numModals = modalState.modalStack.length;
 
         if (
           document.hasFocus() &&

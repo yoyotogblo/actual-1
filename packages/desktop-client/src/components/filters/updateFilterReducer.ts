@@ -11,14 +11,17 @@ export function updateFilterReducer(
   switch (action.type) {
     case 'set-op': {
       const type = FIELD_TYPES.get(state.field);
-      let value = state.value;
+      let value: RuleConditionEntity['value'] | null = state.value;
       if (
         (type === 'id' || type === 'string') &&
         (action.op === 'contains' ||
           action.op === 'matches' ||
           action.op === 'is' ||
           action.op === 'doesNotContain' ||
-          action.op === 'isNot')
+          action.op === 'isNot' ||
+          action.op === 'hasTags' ||
+          action.op === 'onBudget' ||
+          action.op === 'offBudget')
       ) {
         // Clear out the value if switching between contains or
         // is/oneof for the id or string type

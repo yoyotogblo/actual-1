@@ -4,23 +4,26 @@ import React, {
   useEffect,
   useMemo,
   type SetStateAction,
+  type CSSProperties,
 } from 'react';
-import { useSelector } from 'react-redux';
+import { useTranslation } from 'react-i18next';
 
-import { type State } from 'loot-core/src/client/state-types';
+import { css } from '@emotion/css';
+
+import { removeNotification } from 'loot-core/client/actions';
 import type { NotificationWithId } from 'loot-core/src/client/state-types/notifications';
 
-import { useActions } from '../hooks/useActions';
 import { AnimatedLoading } from '../icons/AnimatedLoading';
 import { SvgDelete } from '../icons/v0';
-import { useResponsive } from '../ResponsiveProvider';
-import { styles, theme, type CSSProperties } from '../style';
+import { useSelector, useDispatch } from '../redux';
+import { styles, theme } from '../style';
 
 import { Button, ButtonWithLoading } from './common/Button2';
 import { Link } from './common/Link';
 import { Stack } from './common/Stack';
 import { Text } from './common/Text';
 import { View } from './common/View';
+import { useResponsive } from './responsive/ResponsiveProvider';
 
 function compileMessage(
   message: string,
@@ -87,6 +90,7 @@ function Notification({
   notification: NotificationWithId;
   onRemove: () => void;
 }) {
+  const { t } = useTranslation();
   const {
     type,
     title,
@@ -120,6 +124,11 @@ function Notification({
     [message, messageActions],
   );
 
+  const { isNarrowWidth } = useResponsive();
+  const narrowStyle: CSSProperties = isNarrowWidth
+    ? { minHeight: styles.mobileMinHeight }
+    : {};
+
   return (
     <View
       style={{
@@ -133,10 +142,11 @@ function Notification({
     >
       <Stack
         align="center"
+        justify="space-between"
         direction="row"
         style={{
           padding: '14px 14px',
-          fontSize: 14,
+          ...styles.mediumText,
           backgroundColor: positive
             ? theme.noticeBackgroundLight
             : error
@@ -156,7 +166,15 @@ function Notification({
       >
         <Stack align="flex-start">
           {title && (
-            <View style={{ fontWeight: 700, marginBottom: 10 }}>{title}</View>
+            <View
+              style={{
+                ...styles.mediumText,
+                fontWeight: 700,
+                marginBottom: 10,
+              }}
+            >
+              {title}
+            </View>
           )}
           <View>{processedMessage}</View>
           {pre
@@ -186,7 +204,7 @@ function Notification({
                 onRemove();
                 setLoading(false);
               }}
-              style={({ isHovered, isPressed }) => ({
+              className={css({
                 backgroundColor: 'transparent',
                 border: `1px solid ${
                   positive
@@ -196,33 +214,30 @@ function Notification({
                       : theme.warningBorder
                 }`,
                 color: 'currentColor',
-                fontSize: 14,
+                ...styles.mediumText,
                 flexShrink: 0,
-                ...(isHovered || isPressed
-                  ? {
-                      backgroundColor: positive
-                        ? theme.noticeBackground
-                        : error
-                          ? theme.errorBackground
-                          : theme.warningBackground,
-                    }
-                  : {}),
+                '&[data-hovered], &[data-pressed]': {
+                  backgroundColor: positive
+                    ? theme.noticeBackground
+                    : error
+                      ? theme.errorBackground
+                      : theme.warningBackground,
+                },
+                ...narrowStyle,
               })}
             >
               {button.title}
             </ButtonWithLoading>
           )}
         </Stack>
-        {sticky && (
-          <Button
-            variant="bare"
-            aria-label="Close"
-            style={{ flexShrink: 0, color: 'currentColor' }}
-            onPress={onRemove}
-          >
-            <SvgDelete style={{ width: 9, height: 9, color: 'currentColor' }} />
-          </Button>
-        )}
+        <Button
+          variant="bare"
+          aria-label={t('Close')}
+          style={{ flexShrink: 0, color: 'currentColor' }}
+          onPress={onRemove}
+        >
+          <SvgDelete style={{ width: 9, height: 9, color: 'currentColor' }} />
+        </Button>
       </Stack>
       {overlayLoading && (
         <View
@@ -247,18 +262,18 @@ function Notification({
 }
 
 export function Notifications({ style }: { style?: CSSProperties }) {
-  const { removeNotification } = useActions();
+  const dispatch = useDispatch();
   const { isNarrowWidth } = useResponsive();
-  const notifications = useSelector(
-    (state: State) => state.notifications.notifications,
-  );
+  const notifications = useSelector(state => state.notifications.notifications);
+  const notificationInset = useSelector(state => state.notifications.inset);
   return (
     <View
       style={{
         position: 'fixed',
-        bottom: 20,
-        right: 13,
-        left: isNarrowWidth ? 13 : undefined,
+        bottom: notificationInset?.bottom || 20,
+        top: notificationInset?.top,
+        right: notificationInset?.right || 13,
+        left: notificationInset?.left || (isNarrowWidth ? 13 : undefined),
         zIndex: 10000,
         ...style,
       }}
@@ -271,7 +286,7 @@ export function Notifications({ style }: { style?: CSSProperties }) {
             if (note.onClose) {
               note.onClose();
             }
-            removeNotification(note.id);
+            dispatch(removeNotification(note.id));
           }}
         />
       ))}

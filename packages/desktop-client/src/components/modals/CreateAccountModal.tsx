@@ -1,42 +1,48 @@
-// @ts-strict-ignore
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useEffect, useState } from 'react';
+import { DialogTrigger } from 'react-aria-components';
+import { Trans, useTranslation } from 'react-i18next';
 
+import { pushModal } from 'loot-core/client/actions';
 import { send } from 'loot-core/src/platform/client/fetch';
 
+import { useAuth } from '../../auth/AuthProvider';
+import { Permissions } from '../../auth/types';
 import { authorizeBank } from '../../gocardless';
-import { useActions } from '../../hooks/useActions';
-import { useFeatureFlag } from '../../hooks/useFeatureFlag';
 import { useGoCardlessStatus } from '../../hooks/useGoCardlessStatus';
 import { useSimpleFinStatus } from '../../hooks/useSimpleFinStatus';
-import { type SyncServerStatus } from '../../hooks/useSyncServerStatus';
+import { useSyncServerStatus } from '../../hooks/useSyncServerStatus';
 import { SvgDotsHorizontalTriple } from '../../icons/v1';
+import { useDispatch } from '../../redux';
 import { theme } from '../../style';
+import { Warning } from '../alerts';
 import { Button, ButtonWithLoading } from '../common/Button2';
+import { InitialFocus } from '../common/InitialFocus';
 import { Link } from '../common/Link';
 import { Menu } from '../common/Menu';
-import { Modal, ModalCloseButton, ModalHeader } from '../common/Modal2';
+import { Modal, ModalCloseButton, ModalHeader } from '../common/Modal';
 import { Paragraph } from '../common/Paragraph';
 import { Popover } from '../common/Popover';
 import { Text } from '../common/Text';
 import { View } from '../common/View';
+import { useMultiuserEnabled } from '../ServerContext';
 
 type CreateAccountProps = {
-  syncServerStatus: SyncServerStatus;
   upgradingAccountId?: string;
 };
 
-export function CreateAccountModal({
-  syncServerStatus,
-  upgradingAccountId,
-}: CreateAccountProps) {
-  const actions = useActions();
-  const [isGoCardlessSetupComplete, setIsGoCardlessSetupComplete] =
-    useState(null);
-  const [isSimpleFinSetupComplete, setIsSimpleFinSetupComplete] =
-    useState(null);
-  const [menuGoCardlessOpen, setGoCardlessMenuOpen] = useState<boolean>(false);
-  const triggerRef = useRef(null);
-  const [menuSimplefinOpen, setSimplefinMenuOpen] = useState<boolean>(false);
+export function CreateAccountModal({ upgradingAccountId }: CreateAccountProps) {
+  const { t } = useTranslation();
+
+  const syncServerStatus = useSyncServerStatus();
+  const dispatch = useDispatch();
+  const [isGoCardlessSetupComplete, setIsGoCardlessSetupComplete] = useState<
+    boolean | null
+  >(null);
+  const [isSimpleFinSetupComplete, setIsSimpleFinSetupComplete] = useState<
+    boolean | null
+  >(null);
+  const { hasPermission } = useAuth();
+  const multiuserEnabled = useMultiuserEnabled();
 
   const onConnectGoCardless = () => {
     if (!isGoCardlessSetupComplete) {
@@ -45,9 +51,9 @@ export function CreateAccountModal({
     }
 
     if (upgradingAccountId == null) {
-      authorizeBank(actions.pushModal);
+      authorizeBank(dispatch);
     } else {
-      authorizeBank(actions.pushModal, {
+      authorizeBank(dispatch, {
         upgradingAccountId,
       });
     }
@@ -95,30 +101,38 @@ export function CreateAccountModal({
         newAccounts.push(newAccount);
       }
 
-      actions.pushModal('select-linked-accounts', {
-        accounts: newAccounts,
-        syncSource: 'simpleFin',
-      });
+      dispatch(
+        pushModal('select-linked-accounts', {
+          accounts: newAccounts,
+          syncSource: 'simpleFin',
+        }),
+      );
     } catch (err) {
       console.error(err);
-      actions.pushModal('simplefin-init', {
-        onSuccess: () => setIsSimpleFinSetupComplete(true),
-      });
+      dispatch(
+        pushModal('simplefin-init', {
+          onSuccess: () => setIsSimpleFinSetupComplete(true),
+        }),
+      );
     }
 
     setLoadingSimpleFinAccounts(false);
   };
 
   const onGoCardlessInit = () => {
-    actions.pushModal('gocardless-init', {
-      onSuccess: () => setIsGoCardlessSetupComplete(true),
-    });
+    dispatch(
+      pushModal('gocardless-init', {
+        onSuccess: () => setIsGoCardlessSetupComplete(true),
+      }),
+    );
   };
 
   const onSimpleFinInit = () => {
-    actions.pushModal('simplefin-init', {
-      onSuccess: () => setIsSimpleFinSetupComplete(true),
-    });
+    dispatch(
+      pushModal('simplefin-init', {
+        onSuccess: () => setIsSimpleFinSetupComplete(true),
+      }),
+    );
   };
 
   const onGoCardlessReset = () => {
@@ -131,7 +145,6 @@ export function CreateAccountModal({
         value: null,
       }).then(() => {
         setIsGoCardlessSetupComplete(false);
-        setGoCardlessMenuOpen(false);
       });
     });
   };
@@ -146,13 +159,12 @@ export function CreateAccountModal({
         value: null,
       }).then(() => {
         setIsSimpleFinSetupComplete(false);
-        setSimplefinMenuOpen(false);
       });
     });
   };
 
   const onCreateLocalAccount = () => {
-    actions.pushModal('add-local-account');
+    dispatch(pushModal('add-local-account'));
   };
 
   const { configuredGoCardless } = useGoCardlessStatus();
@@ -165,15 +177,16 @@ export function CreateAccountModal({
     setIsSimpleFinSetupComplete(configuredSimpleFin);
   }, [configuredSimpleFin]);
 
-  let title = 'Add Account';
+  let title = t('Add account');
   const [loadingSimpleFinAccounts, setLoadingSimpleFinAccounts] =
     useState(false);
 
   if (upgradingAccountId != null) {
-    title = 'Link Account';
+    title = t('Link account');
   }
 
-  const simpleFinSyncFeatureFlag = useFeatureFlag('simpleFinSync');
+  const canSetSecrets =
+    !multiuserEnabled || hasPermission(Permissions.ADMINISTRATOR);
 
   return (
     <Modal name="add-account">
@@ -181,34 +194,38 @@ export function CreateAccountModal({
         <>
           <ModalHeader
             title={title}
-            rightContent={<ModalCloseButton onClick={close} />}
+            rightContent={<ModalCloseButton onPress={close} />}
           />
           <View style={{ maxWidth: 500, gap: 30, color: theme.pageText }}>
             {upgradingAccountId == null && (
               <View style={{ gap: 10 }}>
-                <Button
-                  variant="primary"
-                  style={{
-                    padding: '10px 0',
-                    fontSize: 15,
-                    fontWeight: 600,
-                  }}
-                  onPress={onCreateLocalAccount}
-                >
-                  Create local account
-                </Button>
+                <InitialFocus>
+                  <Button
+                    variant="primary"
+                    style={{
+                      padding: '10px 0',
+                      fontSize: 15,
+                      fontWeight: 600,
+                    }}
+                    onPress={onCreateLocalAccount}
+                  >
+                    {t('Create a local account')}
+                  </Button>
+                </InitialFocus>
                 <View style={{ lineHeight: '1.4em', fontSize: 15 }}>
                   <Text>
-                    <strong>Create a local account</strong> if you want to add
-                    transactions manually. You can also{' '}
-                    <Link
-                      variant="external"
-                      to="https://actualbudget.org/docs/transactions/importing"
-                      linkColor="muted"
-                    >
-                      import QIF/OFX/QFX files into a local account
-                    </Link>
-                    .
+                    <Trans>
+                      <strong>Create a local account</strong> if you want to add
+                      transactions manually. You can also{' '}
+                      <Link
+                        variant="external"
+                        to="https://actualbudget.org/docs/transactions/importing"
+                        linkColor="muted"
+                      >
+                        import QIF/OFX/QFX files into a local account
+                      </Link>
+                      .
+                    </Trans>
                   </Text>
                 </View>
               </View>
@@ -216,73 +233,72 @@ export function CreateAccountModal({
             <View style={{ gap: 10 }}>
               {syncServerStatus === 'online' ? (
                 <>
-                  <View
-                    style={{
-                      flexDirection: 'row',
-                      gap: 10,
-                      alignItems: 'center',
-                    }}
-                  >
-                    <ButtonWithLoading
-                      isDisabled={syncServerStatus !== 'online'}
-                      style={{
-                        padding: '10px 0',
-                        fontSize: 15,
-                        fontWeight: 600,
-                        flex: 1,
-                      }}
-                      onPress={onConnectGoCardless}
-                    >
-                      {isGoCardlessSetupComplete
-                        ? 'Link bank account with GoCardless'
-                        : 'Set up GoCardless for bank sync'}
-                    </ButtonWithLoading>
-                    {isGoCardlessSetupComplete && (
-                      <>
-                        <Button
-                          ref={triggerRef}
-                          variant="bare"
-                          onPress={() => setGoCardlessMenuOpen(true)}
-                          aria-label="GoCardless menu"
-                        >
-                          <SvgDotsHorizontalTriple
-                            width={15}
-                            height={15}
-                            style={{ transform: 'rotateZ(90deg)' }}
-                          />
-                        </Button>
-
-                        <Popover
-                          triggerRef={triggerRef}
-                          isOpen={menuGoCardlessOpen}
-                          onOpenChange={() => setGoCardlessMenuOpen(false)}
-                        >
-                          <Menu
-                            onMenuSelect={item => {
-                              if (item === 'reconfigure') {
-                                onGoCardlessReset();
-                              }
-                            }}
-                            items={[
-                              {
-                                name: 'reconfigure',
-                                text: 'Reset GoCardless credentials',
-                              },
-                            ]}
-                          />
-                        </Popover>
-                      </>
-                    )}
-                  </View>
-                  <Text style={{ lineHeight: '1.4em', fontSize: 15 }}>
-                    <strong>
-                      Link a <em>European</em> bank account
-                    </strong>{' '}
-                    to automatically download transactions. GoCardless provides
-                    reliable, up-to-date information from hundreds of banks.
-                  </Text>
-                  {simpleFinSyncFeatureFlag === true && (
+                  {canSetSecrets && (
                     <>
+                      <View
+                        style={{
+                          flexDirection: 'row',
+                          gap: 10,
+                          alignItems: 'center',
+                        }}
+                      >
+                        <ButtonWithLoading
+                          isDisabled={syncServerStatus !== 'online'}
+                          style={{
+                            padding: '10px 0',
+                            fontSize: 15,
+                            fontWeight: 600,
+                            flex: 1,
+                          }}
+                          onPress={onConnectGoCardless}
+                        >
+                          {isGoCardlessSetupComplete
+                            ? t('Link bank account with GoCardless')
+                            : t('Set up GoCardless for bank sync')}
+                        </ButtonWithLoading>
+                        {isGoCardlessSetupComplete && (
+                          <DialogTrigger>
+                            <Button
+                              variant="bare"
+                              aria-label={t('GoCardless menu')}
+                            >
+                              <SvgDotsHorizontalTriple
+                                width={15}
+                                height={15}
+                                style={{ transform: 'rotateZ(90deg)' }}
+                              />
+                            </Button>
+
+                            <Popover>
+                              <Menu
+                                onMenuSelect={item => {
+                                  if (item === 'reconfigure') {
+                                    onGoCardlessReset();
+                                  }
+                                }}
+                                items={[
+                                  {
+                                    name: 'reconfigure',
+                                    text: t('Reset GoCardless credentials'),
+                                  },
+                                ]}
+                              />
+                            </Popover>
+                          </DialogTrigger>
+                        )}
+                      </View>
+                      <Text style={{ lineHeight: '1.4em', fontSize: 15 }}>
+                        <Trans>
+                          <strong>
+                            Link a <em>European</em> bank account
+                          </strong>{' '}
+                          to automatically download transactions.
+                        </Trans>
+                        <Trans>
+                          GoCardless provides reliable, up-to-date information
+                          from hundreds of banks.
+                        </Trans>
+                      </Text>
                       <View
                         style={{
                           flexDirection: 'row',
@@ -303,16 +319,14 @@ export function CreateAccountModal({
                           onPress={onConnectSimpleFin}
                         >
                           {isSimpleFinSetupComplete
-                            ? 'Link bank account with SimpleFIN'
-                            : 'Set up SimpleFIN for bank sync'}
+                            ? t('Link bank account with SimpleFIN')
+                            : t('Set up SimpleFIN for bank sync')}
                         </ButtonWithLoading>
                         {isSimpleFinSetupComplete && (
-                          <>
+                          <DialogTrigger>
                             <Button
-                              ref={triggerRef}
                               variant="bare"
-                              onPress={() => setSimplefinMenuOpen(true)}
-                              aria-label="SimpleFIN menu"
+                              aria-label={t('SimpleFIN menu')}
                             >
                               <SvgDotsHorizontalTriple
                                 width={15}
@@ -320,11 +334,7 @@ export function CreateAccountModal({
                                 style={{ transform: 'rotateZ(90deg)' }}
                               />
                             </Button>
-                            <Popover
-                              triggerRef={triggerRef}
-                              isOpen={menuSimplefinOpen}
-                              onOpenChange={() => setSimplefinMenuOpen(false)}
-                            >
+                            <Popover>
                               <Menu
                                 onMenuSelect={item => {
                                   if (item === 'reconfigure') {
@@ -334,24 +344,44 @@ export function CreateAccountModal({
                                 items={[
                                   {
                                     name: 'reconfigure',
-                                    text: 'Reset SimpleFIN credentials',
+                                    text: t('Reset SimpleFIN credentials'),
                                   },
                                 ]}
                               />
                             </Popover>
-                          </>
+                          </DialogTrigger>
                         )}
                       </View>
                       <Text style={{ lineHeight: '1.4em', fontSize: 15 }}>
-                        <strong>
-                          Link a <em>North American</em> bank account
-                        </strong>{' '}
-                        to automatically download transactions. SimpleFIN
-                        provides reliable, up-to-date information from hundreds
-                        of banks.
+                        <Trans>
+                          <strong>
+                            Link a <em>North American</em> bank account
+                          </strong>{' '}
+                          to automatically download transactions.
+                        </Trans>
+                        <Trans>
+                          SimpleFIN provides reliable, up-to-date information
+                          from hundreds of banks.
+                        </Trans>
                       </Text>
                     </>
                   )}
+                  {(!isGoCardlessSetupComplete || !isSimpleFinSetupComplete) &&
+                    !canSetSecrets && (
+                      <Warning>
+                        <Trans>
+                          You don&apos;t have the required permissions to set up
+                          secrets. Please contact an Admin to configure
+                        </Trans>{' '}
+                        {[
+                          isGoCardlessSetupComplete ? '' : 'GoCardless',
+                          isSimpleFinSetupComplete ? '' : 'SimpleFin',
+                        ]
+                          .filter(Boolean)
+                          .join(' or ')}
+                        .
+                      </Warning>
+                    )}
                 </>
               ) : (
                 <>
@@ -363,18 +393,20 @@ export function CreateAccountModal({
                       fontWeight: 600,
                     }}
                   >
-                    Set up bank sync
+                    <Trans>Set up bank sync</Trans>
                   </Button>
                   <Paragraph style={{ fontSize: 15 }}>
-                    Connect to an Actual server to set up{' '}
-                    <Link
-                      variant="external"
-                      to="https://actualbudget.org/docs/advanced/bank-sync"
-                      linkColor="muted"
-                    >
-                      automatic syncing
-                    </Link>
-                    .
+                    <Trans>
+                      Connect to an Actual server to set up{' '}
+                      <Link
+                        variant="external"
+                        to="https://actualbudget.org/docs/advanced/bank-sync"
+                        linkColor="muted"
+                      >
+                        automatic syncing
+                      </Link>
+                      .
+                    </Trans>
                   </Paragraph>
                 </>
               )}

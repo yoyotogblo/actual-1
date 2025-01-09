@@ -1,13 +1,15 @@
-import React, { type MouseEventHandler, type ReactNode } from 'react';
+import React, { type ReactNode, type CSSProperties } from 'react';
 
-import { type CSSProperties, theme } from '../../style';
-import { Button } from '../common/Button';
+import { css } from '@emotion/css';
+
+import { theme } from '../../style';
+import { Button } from '../common/Button2';
 
 type ModeButtonProps = {
   selected: boolean;
   children: ReactNode;
   style?: CSSProperties;
-  onSelect: MouseEventHandler<HTMLButtonElement>;
+  onSelect: () => void;
 };
 
 export function ModeButton({
@@ -18,11 +20,10 @@ export function ModeButton({
 }: ModeButtonProps) {
   return (
     <Button
-      type="bare"
-      style={{
+      variant="bare"
+      className={css({
         padding: '5px 10px',
         backgroundColor: theme.menuBackground,
-        marginRight: 5,
         fontSize: 'inherit',
         ...style,
         ...(selected && {
@@ -33,8 +34,8 @@ export function ModeButton({
             color: theme.buttonPrimaryTextHover,
           },
         }),
-      }}
-      onClick={onSelect}
+      })}
+      onPress={onSelect}
     >
       {children}
     </Button>

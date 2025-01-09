@@ -8,15 +8,12 @@ import React, {
   useRef,
   type Dispatch,
   type ReactElement,
-  type MouseEvent,
+  type ReactNode,
 } from 'react';
-import { useSelector } from 'react-redux';
 
-import { type State } from 'loot-core/src/client/state-types';
 import { listen } from 'loot-core/src/platform/client/fetch';
 import * as undo from 'loot-core/src/platform/client/undo';
 import { type UndoState } from 'loot-core/src/server/undo';
-import { isNonProductionEnvironment } from 'loot-core/src/shared/environment';
 
 type Range<T> = { start: T; end: T | null };
 type Item = { id: string };
@@ -35,22 +32,22 @@ type SelectedState = {
   selectedItems: Set<string>;
 };
 
-type WithOptionalMouseEvent = {
-  event?: MouseEvent;
-};
 type SelectAction = {
   type: 'select';
   id: string;
-} & WithOptionalMouseEvent;
+  isRangeSelect?: boolean;
+};
 type SelectNoneAction = {
   type: 'select-none';
-} & WithOptionalMouseEvent;
+  isRangeSelect?: boolean;
+};
 type SelectAllAction = {
   type: 'select-all';
   ids?: string[];
-} & WithOptionalMouseEvent;
+  isRangeSelect?: boolean;
+};
 
-type Actions = SelectAction | SelectNoneAction | SelectAllAction;
+export type Actions = SelectAction | SelectNoneAction | SelectAllAction;
 
 export function useSelected<T extends Item>(
   name: string,
@@ -64,9 +61,9 @@ export function useSelected<T extends Item>(
         case 'select': {
           const { selectedRange } = state;
           const selectedItems = new Set(state.selectedItems);
-          const { id, event } = action;
+          const { id, isRangeSelect } = action;
 
-          if (event.shiftKey && selectedRange) {
+          if (isRangeSelect && selectedRange) {
             const idx = items.findIndex(p => p.id === id);
             const startIdx = items.findIndex(p => p.id === selectedRange.start);
             const endIdx = items.findIndex(p => p.id === selectedRange.end);
@@ -209,8 +206,6 @@ export function useSelected<T extends Item>(
     return () => undo.setUndoState('selectedItems', prevState);
   }, [state.selectedItems]);
 
-  const lastUndoState = useSelector((state: State) => state.app.lastUndoState);
-
   useEffect(() => {
     function onUndo({ messages, undoTag }: UndoState) {
       const tagged = undo.getTaggedState(undoTag);
@@ -232,8 +227,9 @@ export function useSelected<T extends Item>(
       }
     }
 
-    if (lastUndoState && lastUndoState.current) {
-      onUndo(lastUndoState.current);
+    const lastUndoEvent = undo.getUndoState('undoEvent');
+    if (lastUndoEvent) {
+      onUndo(lastUndoEvent);
     }
 
     return listen('undo-event', onUndo);
@@ -246,7 +242,7 @@ export function useSelected<T extends Item>(
 }
 
 const SelectedDispatch = createContext<(action: Actions) => void>(null);
-const SelectedItems = createContext<Set<unknown>>(null);
+const SelectedItems = createContext<Set<string>>(null);
 
 export function useSelectedDispatch() {
   return useContext(SelectedDispatch);
@@ -259,7 +255,7 @@ export function useSelectedItems() {
 type SelectedProviderProps<T extends Item> = {
   instance: ReturnType<typeof useSelected<T>>;
   fetchAllIds?: () => Promise<string[]>;
-  children: ReactElement;
+  children: ReactNode;
 };
 
 export function SelectedProvider<T extends Item>({
@@ -275,24 +271,24 @@ export function SelectedProvider<T extends Item>({
 
   const dispatch = useCallback(
     async (action: Actions) => {
-      if (!action.event && isNonProductionEnvironment()) {
-        throw new Error('SelectedDispatch actions must have an event');
-      }
       if (action.type === 'select-all') {
         if (latestItems.current && latestItems.current.size > 0) {
           return instance.dispatch({
             type: 'select-none',
-            event: action.event,
+            isRangeSelect: action.isRangeSelect,
           });
         } else {
           if (fetchAllIds) {
             return instance.dispatch({
               type: 'select-all',
               ids: await fetchAllIds(),
-              event: action.event,
+              isRangeSelect: action.isRangeSelect,
             });
           }
-          return instance.dispatch({ type: 'select-all', event: action.event });
+          return instance.dispatch({
+            type: 'select-all',
+            isRangeSelect: action.isRangeSelect,
+          });
         }
       }
       return instance.dispatch(action);
@@ -312,7 +308,7 @@ export function SelectedProvider<T extends Item>({
 type SelectedProviderWithItemsProps<T extends Item> = {
   name: string;
   items: T[];
-  initialSelectedIds: string[];
+  initialSelectedIds?: string[];
   fetchAllIds: () => Promise<string[]>;
   registerDispatch?: (dispatch: Dispatch<Actions>) => void;
   selectAllFilter?: (item: T) => boolean;
@@ -324,7 +320,7 @@ type SelectedProviderWithItemsProps<T extends Item> = {
 export function SelectedProviderWithItems<T extends Item>({
   name,
   items,
-  initialSelectedIds,
+  initialSelectedIds = [],
   fetchAllIds,
   registerDispatch,
   selectAllFilter,

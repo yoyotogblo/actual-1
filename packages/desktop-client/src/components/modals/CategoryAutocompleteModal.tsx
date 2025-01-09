@@ -1,8 +1,8 @@
 import React, { type ComponentPropsWithoutRef } from 'react';
+import { useTranslation } from 'react-i18next';
 
 import * as monthUtils from 'loot-core/src/shared/months';
 
-import { useResponsive } from '../../ResponsiveProvider';
 import { theme } from '../../style';
 import { CategoryAutocomplete } from '../autocomplete/CategoryAutocomplete';
 import {
@@ -10,9 +10,10 @@ import {
   Modal,
   ModalTitle,
   ModalHeader,
-} from '../common/Modal2';
+} from '../common/Modal';
 import { View } from '../common/View';
 import { SectionLabel } from '../forms';
+import { useResponsive } from '../responsive/ResponsiveProvider';
 import { NamespaceContext } from '../spreadsheet/NamespaceContext';
 
 type CategoryAutocompleteModalProps = {
@@ -26,6 +27,7 @@ export function CategoryAutocompleteModal({
   month,
   onClose,
 }: CategoryAutocompleteModalProps) {
+  const { t } = useTranslation();
   const { isNarrowWidth } = useResponsive();
 
   const defaultAutocompleteProps = {
@@ -50,13 +52,13 @@ export function CategoryAutocompleteModal({
             <ModalHeader
               title={
                 <ModalTitle
-                  title="Category"
+                  title={t('Category')}
                   getStyle={() => ({ color: theme.menuAutoCompleteText })}
                 />
               }
               rightContent={
                 <ModalCloseButton
-                  onClick={close}
+                  onPress={close}
                   style={{ color: theme.menuAutoCompleteText }}
                 />
               }
@@ -65,7 +67,7 @@ export function CategoryAutocompleteModal({
           <View>
             {!isNarrowWidth && (
               <SectionLabel
-                title="Category"
+                title={t('Category')}
                 style={{
                   alignSelf: 'center',
                   color: theme.menuAutoCompleteText,

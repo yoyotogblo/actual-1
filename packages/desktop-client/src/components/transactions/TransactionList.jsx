@@ -1,7 +1,4 @@
 import React, { useRef, useCallback, useLayoutEffect } from 'react';
-import { useDispatch } from 'react-redux';
-
-import escapeRegExp from 'lodash/escapeRegExp';
 
 import { pushModal } from 'loot-core/client/actions';
 import { send } from 'loot-core/src/platform/client/fetch';
@@ -15,6 +12,7 @@ import {
 import { getChangedValues, applyChanges } from 'loot-core/src/shared/util';
 
 import { useNavigate } from '../../hooks/useNavigate';
+import { useDispatch } from '../../redux';
 import { theme } from '../../style';
 
 import { TransactionTable } from './TransactionsTable';
@@ -70,6 +68,7 @@ export function TransactionList({
   payees,
   balances,
   showBalances,
+  showReconciled,
   showCleared,
   showAccount,
   headerContent,
@@ -89,6 +88,15 @@ export function TransactionList({
   onCloseAddTransaction,
   onCreatePayee,
   onApplyFilter,
+  showSelection = true,
+  allowSplitTransaction = true,
+  onBatchDelete,
+  onBatchDuplicate,
+  onBatchLinkSchedule,
+  onBatchUnlinkSchedule,
+  onCreateRule,
+  onScheduleAction,
+  onMakeAsNonSplitTransactions,
 }) {
   const dispatch = useDispatch();
   const transactionsLatest = useRef();
@@ -107,6 +115,7 @@ export function TransactionList({
 
   const onSave = useCallback(async transaction => {
     const changes = updateTransaction(transactionsLatest.current, transaction);
+    transactionsLatest.current = changes.data;
 
     if (changes.diff.updated.length > 0) {
       const dateChanged = !!changes.diff.updated[0].date;
@@ -191,8 +200,8 @@ export function TransactionList({
   const onNotesTagClick = useCallback(tag => {
     onApplyFilter({
       field: 'notes',
-      op: 'matches',
-      value: `(^|\\s|\\w|#)${escapeRegExp(tag)}($|\\s|#)`,
+      op: 'hasTags',
+      value: tag,
       type: 'string',
     });
   });
@@ -205,8 +214,9 @@ export function TransactionList({
       accounts={accounts}
       categoryGroups={categoryGroups}
       payees={payees}
-      showBalances={showBalances}
       balances={balances}
+      showBalances={showBalances}
+      showReconciled={showReconciled}
       showCleared={showCleared}
       showAccount={showAccount}
       showCategory={true}
@@ -236,6 +246,15 @@ export function TransactionList({
       onSort={onSort}
       sortField={sortField}
       ascDesc={ascDesc}
+      onBatchDelete={onBatchDelete}
+      onBatchDuplicate={onBatchDuplicate}
+      onBatchLinkSchedule={onBatchLinkSchedule}
+      onBatchUnlinkSchedule={onBatchUnlinkSchedule}
+      onCreateRule={onCreateRule}
+      onScheduleAction={onScheduleAction}
+      onMakeAsNonSplitTransactions={onMakeAsNonSplitTransactions}
+      showSelection={showSelection}
+      allowSplitTransaction={allowSplitTransaction}
     />
   );
 }

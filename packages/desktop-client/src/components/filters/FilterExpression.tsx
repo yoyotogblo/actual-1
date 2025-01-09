@@ -1,12 +1,13 @@
-import React, { useRef, useState } from 'react';
+import React, { useRef, useState, type CSSProperties } from 'react';
+import { useTranslation } from 'react-i18next';
 
 import { mapField, friendlyOp } from 'loot-core/src/shared/rules';
 import { integerToCurrency } from 'loot-core/src/shared/util';
 import { type RuleConditionEntity } from 'loot-core/src/types/models';
 
 import { SvgDelete } from '../../icons/v0';
-import { type CSSProperties, theme } from '../../style';
-import { Button } from '../common/Button';
+import { theme } from '../../style';
+import { Button } from '../common/Button2';
 import { Popover } from '../common/Popover';
 import { Text } from '../common/Text';
 import { View } from '../common/View';
@@ -38,6 +39,7 @@ export function FilterExpression<T extends RuleConditionEntity>({
   onChange,
   onDelete,
 }: FilterExpressionProps<T>) {
+  const { t } = useTranslation();
   const [editing, setEditing] = useState(false);
   const triggerRef = useRef(null);
 
@@ -57,11 +59,24 @@ export function FilterExpression<T extends RuleConditionEntity>({
     >
       <Button
         ref={triggerRef}
-        type="bare"
-        disabled={customName != null}
-        onClick={() => setEditing(true)}
+        variant="bare"
+        isDisabled={customName != null}
+        onPress={() => setEditing(true)}
+        style={{
+          maxWidth: 'calc(100% - 26px)',
+          whiteSpace: 'nowrap',
+          display: 'block',
+        }}
       >
-        <div style={{ paddingBlock: 1, paddingLeft: 5, paddingRight: 2 }}>
+        <div
+          style={{
+            paddingBlock: 1,
+            paddingLeft: 5,
+            paddingRight: 2,
+            overflow: 'hidden',
+            textOverflow: 'ellipsis',
+          }}
+        >
           {customName ? (
             <Text style={{ color: theme.pageTextPositive }}>{customName}</Text>
           ) : (
@@ -70,21 +85,24 @@ export function FilterExpression<T extends RuleConditionEntity>({
                 {mapField(field, options)}
               </Text>{' '}
               <Text>{friendlyOp(op, null)}</Text>{' '}
-              <Value
-                value={value}
-                field={field}
-                inline={true}
-                valueIsRaw={
-                  op === 'contains' ||
-                  op === 'matches' ||
-                  op === 'doesNotContain'
-                }
-              />
+              {!['onbudget', 'offbudget'].includes(op?.toLocaleLowerCase()) && (
+                <Value
+                  value={value}
+                  field={field}
+                  inline={true}
+                  valueIsRaw={
+                    op === 'contains' ||
+                    op === 'matches' ||
+                    op === 'doesNotContain' ||
+                    op === 'hasTags'
+                  }
+                />
+              )}
             </>
           )}
         </div>
       </Button>
-      <Button type="bare" onClick={onDelete} aria-label="Delete filter">
+      <Button variant="bare" onPress={onDelete} aria-label={t('Delete filter')}>
         <SvgDelete
           style={{
             width: 8,

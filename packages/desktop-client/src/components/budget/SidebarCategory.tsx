@@ -1,11 +1,13 @@
 // @ts-strict-ignore
-import React, { type CSSProperties, type Ref, useRef, useState } from 'react';
+import React, { type CSSProperties, type Ref, useRef } from 'react';
+import { useTranslation } from 'react-i18next';
 
 import {
   type CategoryGroupEntity,
   type CategoryEntity,
 } from 'loot-core/src/types/models';
 
+import { useContextMenu } from '../../hooks/useContextMenu';
 import { SvgCheveronDown } from '../../icons/v1';
 import { theme } from '../../style';
 import { Button } from '../common/Button2';
@@ -45,8 +47,11 @@ export function SidebarCategory({
   onDelete,
   onHideNewCategory,
 }: SidebarCategoryProps) {
+  const { t } = useTranslation();
+
   const temporary = category.id === 'new';
-  const [menuOpen, setMenuOpen] = useState(false);
+  const { setMenuOpen, menuOpen, handleContextMenu, resetPosition, position } =
+    useContextMenu();
   const triggerRef = useRef(null);
 
   const displayed = (
@@ -58,7 +63,10 @@ export function SidebarCategory({
         WebkitUserSelect: 'none',
         opacity: category.hidden || categoryGroup?.hidden ? 0.33 : undefined,
         backgroundColor: 'transparent',
+        height: 20,
       }}
+      ref={triggerRef}
+      onContextMenu={handleContextMenu}
     >
       <div
         data-testid="category-name"
@@ -71,12 +79,15 @@ export function SidebarCategory({
       >
         {category.name}
       </div>
-      <View style={{ flexShrink: 0, marginLeft: 5 }} ref={triggerRef}>
+      <View style={{ flexShrink: 0, marginLeft: 5 }}>
         <Button
           variant="bare"
           className="hover-visible"
           style={{ color: 'currentColor', padding: 3 }}
-          onPress={() => setMenuOpen(true)}
+          onPress={() => {
+            resetPosition();
+            setMenuOpen(true);
+          }}
         >
           <SvgCheveronDown
             width={14}
@@ -90,7 +101,9 @@ export function SidebarCategory({
           placement="bottom start"
           isOpen={menuOpen}
           onOpenChange={() => setMenuOpen(false)}
-          style={{ width: 200 }}
+          style={{ width: 200, margin: 1 }}
+          isNonModal
+          {...position}
         >
           <Menu
             onMenuSelect={type => {
@@ -179,7 +192,7 @@ export function SidebarCategory({
         onBlur={() => onEditName(null)}
         style={{ paddingLeft: 13, ...(isLast && { borderBottomWidth: 0 }) }}
         inputProps={{
-          placeholder: temporary ? 'New Category Name' : '',
+          placeholder: temporary ? t('New Category Name') : '',
         }}
       />
     </View>

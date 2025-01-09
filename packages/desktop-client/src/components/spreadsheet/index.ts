@@ -8,22 +8,32 @@ export type Spreadsheets = {
 
     // Account fields
     balance: number;
+    [key: `balance-${string}-cleared`]: number | null;
     'accounts-balance': number;
-    'budgeted-accounts-balance': number;
+    'onbudget-accounts-balance': number;
     'offbudget-accounts-balance': number;
     balanceCleared: number;
     balanceUncleared: number;
   };
-  'rollover-budget': {
+  category: {
     // Common fields
     'uncategorized-amount': number;
     'uncategorized-balance': number;
 
-    // Rollover fields
+    balance: number;
+    balanceCleared: number;
+    balanceUncleared: number;
+  };
+  'envelope-budget': {
+    // Common fields
+    'uncategorized-amount': number;
+    'uncategorized-balance': number;
+
+    // Envelope budget fields
     'available-funds': number;
     'last-month-overspent': number;
     buffered: number;
-    'to-budget': number;
+    'to-budget': number | null;
     'from-last-month': number;
     'total-budgeted': number;
     'total-income': number;
@@ -39,6 +49,39 @@ export type Spreadsheets = {
     goal: number;
     'long-goal': number;
   };
+  'tracking-budget': {
+    // Common fields
+    'uncategorized-amount': number;
+    'uncategorized-balance': number;
+
+    // Tracking budget fields
+    'total-budgeted': number;
+    'total-budget-income': number;
+    'total-saved': number;
+    'total-income': number;
+    'total-spent': number;
+    'real-saved': number;
+    'total-leftover': number;
+    'group-sum-amount': number;
+    'group-budget': number;
+    'group-leftover': number;
+    budget: number;
+    'sum-amount': number;
+    leftover: number;
+    carryover: number;
+    goal: number;
+    'long-goal': number;
+  };
+  [`balance`]: {
+    // Common fields
+    'uncategorized-amount': number;
+    'uncategorized-balance': number;
+
+    // Balance fields
+    [key: `balance-query-${string}`]: number;
+    [key: `selected-transactions-${string}`]: Array<{ id: string }>;
+    [key: `selected-balance-${string}`]: number;
+  };
 };
 
 export type SheetNames = keyof Spreadsheets & string;
@@ -47,10 +90,8 @@ export type SheetFields<SheetName extends SheetNames> =
   keyof Spreadsheets[SheetName] & string;
 
 export type Binding<
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  SheetName extends SheetNames = any,
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  SheetFieldName extends SheetFields<SheetName> = any,
+  SheetName extends SheetNames,
+  SheetFieldName extends SheetFields<SheetName>,
 > =
   | SheetFieldName
   | {
